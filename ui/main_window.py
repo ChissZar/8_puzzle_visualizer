@@ -1,8 +1,10 @@
+import copy
 import tkinter as tk
 from tkinter import ttk
 from logic.bfs_solver import BFSSolver
 from logic.dfs_solver import DFSSolver
 from logic.ids_solver import IDSSolver
+from logic.ucs_solver import UCSSolver
 from ui.board_widget import BoardWidget
 
 class MainWindow:
@@ -23,7 +25,8 @@ class MainWindow:
         self.algorithms = {
             "BFS (Breadth-First Search)": BFSSolver,
             "DFS (Depth-First Search)": DFSSolver,
-            "IDS (Iterative Deepening Search)": IDSSolver
+            "IDS (Iterative Deepening Search)": IDSSolver,
+            "UCS (Uniform Cost Search)": UCSSolver 
         }
         
         self.solver = None # Sẽ được khởi tạo khi gọi reset_environment()
@@ -98,23 +101,28 @@ class MainWindow:
                                   font=('Arial', 12, 'bold'), bg="#e67e22", fg="white", width=12)
         self.btn_next.grid(row=0, column=0, padx=10)
 
+        self.btn_prev = tk.Button(self.button_container, text="Previous Step", command=self.previous_step, 
+                                  font=('Arial', 12, 'bold'), bg="#7f8c8d", fg="white", width=12, state=tk.DISABLED)
+        self.btn_prev.grid(row=0, column=1, padx=10)
+
         self.btn_auto = tk.Button(self.button_container, text="Auto Play", command=self.toggle_auto_play, 
                                   font=('Arial', 12, 'bold'), bg="#2980b9", fg="white", width=12)
-        self.btn_auto.grid(row=0, column=1, padx=10)
+        self.btn_auto.grid(row=0, column=2, padx=10)
 
         self.lbl_stats = tk.Label(self.button_container, text="Ready", fg="#bdc3c7", bg="#2c3e50", font=('Arial', 12))
-        self.lbl_stats.grid(row=0, column=2, padx=15)
+        self.lbl_stats.grid(row=0, column=3, padx=15)
 
     def reset_environment(self):
         """Khởi tạo lại trạng thái hệ thống dựa trên thuật toán được chọn"""
-        # 1. Tắt Auto Play nếu đang chạy
+        # Tắt Auto Play nếu đang chạy
         self.is_auto_playing = False
         self.btn_auto.config(text="Auto Play", bg="#2980b9", state=tk.NORMAL)
         self.btn_next.config(state=tk.NORMAL)
         
-        # 2. Xóa sạch dữ liệu cũ
+        # Xóa sạch dữ liệu cũ
         self.step_count = 0
         self.solution_path = []
+        self.current_state_data = None
         self.path_listbox.delete(0, tk.END)
         for widget in [self.node_up, self.node_down, self.node_left, self.node_right]:
             widget.update_board(None)
@@ -122,12 +130,12 @@ class MainWindow:
         for bw in self.frontier_boards:
             bw.update_board(None)
 
-        # 3. Khởi tạo Solver mới dựa trên lựa chọn của Combobox
+        # Khởi tạo Solver mới dựa trên lựa chọn của Combobox
         selected_algo_name = self.combo_algo.get()
         SolverClass = self.algorithms[selected_algo_name]
         self.solver = SolverClass(self.initial_board)
 
-        # 4. Hiển thị Node ban đầu
+        # Hiển thị Node ban đầu
         self.node_center.update_board(self.solver.initial_node.board, highlight=True)
         self.node_center.config(bg="#a55b00")
         self.frontier_boards[0].update_board(self.solver.initial_node.board)
@@ -137,11 +145,51 @@ class MainWindow:
             self.lbl_stats.config(text="Limit (l): 0 | Step: 0 | Frontier: 1", fg="#bdc3c7")
         else:
             self.lbl_stats.config(text="Step: 0 | Reached: 1 | Frontier: 1", fg="#bdc3c7")
+        
+        self.ui_history = [] 
+        self.btn_prev.config(state=tk.DISABLED)
 
     def next_step(self):
+        # Trước khi chạy bước mới, lưu lại nguyên văn bộ nhớ hiện tại của Solver và thông số bước
+        # Sử dụng copy.deepcopy để nhân bản độc lập, tránh bị ghi đè dữ liệu
+        solver_snapshot = copy.deepcopy(self.solver)
+        self.ui_history.append((self.step_count, solver_snapshot, self.current_state_data))
+        self.btn_prev.config(state=tk.NORMAL) # Kích hoạt nút quay lại
+
         self.step_count += 1
         state_data = self.solver.step()
+        
+        self.current_state_data = state_data 
         self.update_ui_from_state(state_data)
+
+    def previous_step(self):
+        """Hàm xử lý quay ngược lại bước trước đó của thuật toán"""
+        if not self.ui_history:
+            return
+
+        # Pop lấy dữ liệu mới nhất từ Stack lịch sử ra (LIFO)
+        prev_step_count, prev_solver_state, prev_state_data = self.ui_history.pop()
+        
+        # Đè bộ nhớ cũ vào lại hệ thống
+        self.step_count = prev_step_count
+        self.solver = prev_solver_state  # Trả bộ giải về đúng quá khứ của nó
+        self.current_state_data = prev_state_data
+        
+        # 3. Khôi phục giao diện vẽ trên màn hình
+        if prev_state_data is None:
+            # Nếu lùi về tận bước xuất phát ban đầu (khi chưa có data expand nào)
+            self.reset_environment()
+            return
+        else:
+            self.update_ui_from_state(prev_state_data)
+        
+        # Nếu đã lùi về hết cỡ thì khóa nút bấm lại
+        if not self.ui_history:
+            self.btn_prev.config(state=tk.DISABLED)
+            
+        # Mở khóa lại các nút bấm đề phòng trường hợp trước đó đã kết thúc thành công/thất bại
+        self.btn_next.config(state=tk.NORMAL)
+        self.btn_auto.config(state=tk.NORMAL)
 
     def colorize_node(self, widget, move_name, children_info):
         if move_name not in children_info:
@@ -201,6 +249,9 @@ class MainWindow:
             for idx, node in enumerate(self.solution_path):
                 move_val = getattr(node, 'move')
                 move_str = f"Step {idx}: " + (str(move_val) if move_val else "START")
+                if hasattr(self.solver, 'node_costs'):
+                    cost_val = self.solver.node_costs.get(node.board, 0)
+                    move_str += f" (Cost: {cost_val})"
                 self.path_listbox.insert(tk.END, move_str)
             return
 
@@ -219,8 +270,14 @@ class MainWindow:
 
         # Định dạng thống kê hiển thị khác nhau tùy vào thuật toán (Có l hay không có l)
         if "current_l" in data:
+            # IDS
             self.lbl_stats.config(text=f"Limit: {data['current_l']} | Step: {self.step_count} | Frontier: {data['frontier_count']}", fg="#bdc3c7")
+        elif hasattr(self.solver, 'node_costs'):
+            # UCS
+            current_cost = self.solver.node_costs.get(current_board, 0)
+            self.lbl_stats.config(text=f"Step: {self.step_count} | Reached: {data['reached_count']} | Frontier: {data['frontier_count']} | Current Cost: {current_cost}", fg="#bdc3c7")
         else:
+            # BFS, DFS
             self.lbl_stats.config(text=f"Step: {self.step_count} | Reached: {data['reached_count']} | Frontier: {data['frontier_count']}", fg="#bdc3c7")
 
     def on_path_select(self, event):
@@ -259,6 +316,6 @@ class MainWindow:
     
 if __name__ == "__main__":
     root = tk.Tk()
-    root.geometry("780x560") # Chiss nới rộng cửa sổ một chút để chứa giao diện mới
+    root.geometry("780x560") 
     app = MainWindow(root)
     root.mainloop()

@@ -15,6 +15,11 @@ class IDSSolver:
     def reset_dls(self, limit):
         """Khởi động lại Frontier Stack và trạng thái cho một tầng độ sâu mới"""
         self.limit = limit
+        
+        # Làm sạch mối liên kết cha-con và độ sâu của Node gốc khi sang tầng mới
+        self.initial_node.parent = None
+        self.initial_node.depth = 0
+        
         self.frontier = [self.initial_node]
         self.cutoff_occurred = False
 
@@ -57,7 +62,7 @@ class IDSSolver:
         # node <- POP(frontier)
         current_node = self.frontier.pop()
         
-        # if problem.IS-GOAL(node.STATE) then return node
+        # if problem.IS-GOAL(node.STATE) then return node 
         if current_node.is_goal():
             self.is_solved = True
             return {
@@ -72,18 +77,21 @@ class IDSSolver:
         # if DEPTH(node) >= l then result <- cutoff
         if current_node.depth >= self.limit:
             self.cutoff_occurred = True
-            # Không phát triển thêm khi chạm hoặc vượt giới hạn tầng l
+
         else:
-            # else if not IS-CYCLE(node) do
-            if not current_node.is_cycle():
-                children_dict = current_node.get_children()
-                
-                for move, child_node in children_dict.items():
-                    # Thêm tất cả con hợp lệ vào frontier stack
+            children_dict = current_node.get_children()
+
+            for move, child_node in children_dict.items():
+                # KIỂM TRA CHU TRÌNH SỚM TRÊN TỪNG ĐỨA CON
+                if child_node.is_cycle():
+                    # Trùng chu trình trên nhánh 
+                    children_info[move] = {"node": child_node, "type": "reached"}
+                else:
+                    # Hợp lệ và mới tinh trên nhánh này 
                     self.frontier.append(child_node)
                     children_info[move] = {"node": child_node, "type": "new"}
 
-        # Chuẩn bị dữ liệu hiển thị
+        # Chuẩn bị dữ liệu hiển thị lấy 5 node trên đỉnh Stack (mới nhất)
         frontier_preview_list = [node.board for node in self.frontier][-5:][::-1]
 
         return {
