@@ -5,6 +5,7 @@ from logic.bfs_solver import BFSSolver
 from logic.dfs_solver import DFSSolver
 from logic.ids_solver import IDSSolver
 from logic.ucs_solver import UCSSolver
+from logic.greedy_solver import GreedySolver
 from ui.board_widget import BoardWidget
 
 class MainWindow:
@@ -26,7 +27,8 @@ class MainWindow:
             "BFS (Breadth-First Search)": BFSSolver,
             "DFS (Depth-First Search)": DFSSolver,
             "IDS (Iterative Deepening Search)": IDSSolver,
-            "UCS (Uniform Cost Search)": UCSSolver 
+            "UCS (Uniform Cost Search)": UCSSolver,
+            "Greedy Search (Manhattan)": GreedySolver 
         }
         
         self.solver = None # Sẽ được khởi tạo khi gọi reset_environment()
@@ -175,7 +177,7 @@ class MainWindow:
         self.solver = prev_solver_state  # Trả bộ giải về đúng quá khứ của nó
         self.current_state_data = prev_state_data
         
-        # 3. Khôi phục giao diện vẽ trên màn hình
+        # Khôi phục giao diện vẽ trên màn hình
         if prev_state_data is None:
             # Nếu lùi về tận bước xuất phát ban đầu (khi chưa có data expand nào)
             self.reset_environment()

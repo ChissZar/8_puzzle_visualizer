@@ -40,3 +40,31 @@ class PuzzleState:
                 return True
             current = current.parent
         return False
+    
+    def heuristic_manhattan(self):
+        """Hàm Heuristic h(n): Tính tổng khoảng cách Manhattan của các ô từ 1 đến 8 về đích"""
+        # Định nghĩa tọa độ (hàng, cột) đúng của các số từ 0 đến 8 ở trạng thái ĐÍCH
+        # Đích chuẩn: (1, 2, 3, 4, 5, 6, 7, 8, 0)
+        goal_positions = {
+            1: (0, 0), 2: (0, 1), 3: (0, 2),
+            4: (1, 0), 5: (1, 1), 6: (1, 2),
+            7: (2, 0), 8: (2, 1), 0: (2, 2)  # Ô trống số 0 sẽ bỏ qua không tính
+        }
+        
+        total_distance = 0
+        
+        # Duyệt qua 9 vị trí trên ma trận hiện tại của Node này
+        for i in range(9):
+            val = self.board[i]
+            if val != 0:  # Không tính ô trống
+                # Tọa độ hiện tại 
+                current_row = i // 3
+                current_col = i % 3
+                
+                # Tọa độ đúng ở trạng thái đích
+                goal_row, goal_col = goal_positions[val]
+                
+                # Áp dụng công thức trị tuyệt đối: |x1 - x2| + |y1 - y2|
+                total_distance += abs(current_row - goal_row) + abs(current_col - goal_col)
+                
+        return total_distance
