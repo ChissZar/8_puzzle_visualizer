@@ -1,4 +1,5 @@
 import copy
+from platform import node
 import tkinter as tk
 from tkinter import ttk
 from logic.bfs_solver import BFSSolver
@@ -6,6 +7,8 @@ from logic.dfs_solver import DFSSolver
 from logic.ids_solver import IDSSolver
 from logic.ucs_solver import UCSSolver
 from logic.greedy_solver import GreedySolver
+from logic.astar_solver import AStarSolver
+from logic.ida_star_solver import IDAStarSolver
 from ui.board_widget import BoardWidget
 
 class MainWindow:
@@ -28,7 +31,9 @@ class MainWindow:
             "DFS (Depth-First Search)": DFSSolver,
             "IDS (Iterative Deepening Search)": IDSSolver,
             "UCS (Uniform Cost Search)": UCSSolver,
-            "Greedy Search (Manhattan)": GreedySolver 
+            "Greedy Search (Manhattan)": GreedySolver,
+            "A* Search (Inversions + Misplaced)": AStarSolver,
+            "IDA* Search (Manhattan + Misplaced)": IDAStarSolver
         }
         
         self.solver = None # Sẽ được khởi tạo khi gọi reset_environment()
@@ -251,7 +256,12 @@ class MainWindow:
             for idx, node in enumerate(self.solution_path):
                 move_val = getattr(node, 'move')
                 move_str = f"Step {idx}: " + (str(move_val) if move_val else "START")
-                if hasattr(self.solver, 'node_costs'):
+
+                # Hiển thị thêm Cost cho các thuật toán có đánh giá chi phí
+                if hasattr(node, 'f'): # Bắt thẳng thuộc tính f của AStarNode
+                     move_str += f" (f = {node.f})"
+
+                elif hasattr(self.solver, 'node_costs'):
                     cost_val = self.solver.node_costs.get(node.board, 0)
                     move_str += f" (Cost: {cost_val})"
                 self.path_listbox.insert(tk.END, move_str)
@@ -272,8 +282,13 @@ class MainWindow:
 
         # Định dạng thống kê hiển thị khác nhau tùy vào thuật toán (Có l hay không có l)
         if "current_l" in data:
-            # IDS
-            self.lbl_stats.config(text=f"Limit: {data['current_l']} | Step: {self.step_count} | Frontier: {data['frontier_count']}", fg="#bdc3c7")
+            # IDS và IDA*
+            reached_val = data.get('reached_count', 0)
+            self.lbl_stats.config(text=f"Limit: {data['current_l']} | Step: {self.step_count} | Reached: {reached_val} | Frontier: {data['frontier_count']}", fg="#bdc3c7")
+        elif hasattr(data["current"], 'f'): # Nhận diện AStarNode
+            # AStar 
+            current_f = data["current"].f
+            self.lbl_stats.config(text=f"Step: {self.step_count} | Reached: {data['reached_count']} | Frontier: {data['frontier_count']} | f(n) = {current_f}", fg="#bdc3c7")
         elif hasattr(self.solver, 'node_costs'):
             # UCS
             current_cost = self.solver.node_costs.get(current_board, 0)
