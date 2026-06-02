@@ -9,6 +9,8 @@ from logic.ucs_solver import UCSSolver
 from logic.greedy_solver import GreedySolver
 from logic.astar_solver import AStarSolver
 from logic.ida_star_solver import IDAStarSolver
+from logic.simple_hill_climbing_solver import SimpleHillClimbingSolver
+from logic.steepest_ascent_hill_climbing_solver import SteepestAscentHillClimbingSolver
 from ui.board_widget import BoardWidget
 
 class MainWindow:
@@ -33,7 +35,9 @@ class MainWindow:
             "UCS (Uniform Cost Search)": UCSSolver,
             "Greedy Search (Manhattan)": GreedySolver,
             "A* Search (Inversions + Misplaced)": AStarSolver,
-            "IDA* Search (Manhattan + Misplaced)": IDAStarSolver
+            "IDA* Search (Manhattan + Misplaced)": IDAStarSolver,
+            "Simple Hill Climbing (Manhattan)": SimpleHillClimbingSolver,
+            "Steepest-Ascent Hill Climbing (Manhattan)": SteepestAscentHillClimbingSolver
         }
         
         self.solver = None # Sẽ được khởi tạo khi gọi reset_environment()
@@ -218,7 +222,10 @@ class MainWindow:
     def update_ui_from_state(self, data):
         if data is None:
             return
-            
+        
+        current_algo = self.combo_algo.get()
+        is_heuristic_only = "Hill Climbing" in current_algo or "Greedy" in current_algo
+
         current_board = data["current"].board
         self.node_center.update_board(current_board, highlight=True)
         self.node_center.config(bg="#a55b00")
@@ -257,13 +264,17 @@ class MainWindow:
                 move_val = getattr(node, 'move')
                 move_str = f"Step {idx}: " + (str(move_val) if move_val else "START")
 
-                # Hiển thị thêm Cost cho các thuật toán có đánh giá chi phí
-                if hasattr(node, 'f'): # Bắt thẳng thuộc tính f của AStarNode
-                     move_str += f" (f = {node.f})"
-
+                if hasattr(node, 'f') and hasattr(node, 'h'): 
+                    if is_heuristic_only:
+                        # Dành cho Hill Climbing / Greedy
+                        move_str += f" (h = {node.h})"
+                    else:
+                        # Dành cho A*, IDA*
+                        move_str += f" (f = {node.f})"
                 elif hasattr(self.solver, 'node_costs'):
                     cost_val = self.solver.node_costs.get(node.board, 0)
                     move_str += f" (Cost: {cost_val})"
+                    
                 self.path_listbox.insert(tk.END, move_str)
             return
 
@@ -285,14 +296,22 @@ class MainWindow:
             # IDS và IDA*
             reached_val = data.get('reached_count', 0)
             self.lbl_stats.config(text=f"Limit: {data['current_l']} | Step: {self.step_count} | Reached: {reached_val} | Frontier: {data['frontier_count']}", fg="#bdc3c7")
-        elif hasattr(data["current"], 'f'): # Nhận diện AStarNode
-            # AStar 
-            current_f = data["current"].f
-            self.lbl_stats.config(text=f"Step: {self.step_count} | Reached: {data['reached_count']} | Frontier: {data['frontier_count']} | f(n) = {current_f}", fg="#bdc3c7")
+        
+        elif hasattr(data["current"], 'f') and hasattr(data["current"], 'h'): 
+            if is_heuristic_only:
+                # Nếu là Hill Climbing/Greedy, in chữ h(n)
+                current_val = data["current"].h
+                self.lbl_stats.config(text=f"Step: {self.step_count} | Reached: {data['reached_count']} | Frontier: {data['frontier_count']} | h(n) = {current_val}", fg="#bdc3c7")
+            else:
+                # Nếu là A*, in chữ f(n)
+                current_val = data["current"].f
+                self.lbl_stats.config(text=f"Step: {self.step_count} | Reached: {data['reached_count']} | Frontier: {data['frontier_count']} | f(n) = {current_val}", fg="#bdc3c7")
+        
         elif hasattr(self.solver, 'node_costs'):
             # UCS
             current_cost = self.solver.node_costs.get(current_board, 0)
             self.lbl_stats.config(text=f"Step: {self.step_count} | Reached: {data['reached_count']} | Frontier: {data['frontier_count']} | Current Cost: {current_cost}", fg="#bdc3c7")
+        
         else:
             # BFS, DFS
             self.lbl_stats.config(text=f"Step: {self.step_count} | Reached: {data['reached_count']} | Frontier: {data['frontier_count']}", fg="#bdc3c7")
