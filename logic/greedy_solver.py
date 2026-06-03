@@ -41,10 +41,14 @@ class GreedySolver:
         # Frontier không rỗng
         if not self.frontier:
             self.failure = True
-            return {"status": "failure"}
+            return {
+                "status": "failure",
+                "current": getattr(self, 'current_node', self.initial_node) # Gửi node cuối lên UI
+            }
 
         # Chọn trạng thái có chi phí nhỏ nhất (Manhattan)
         current_cost, _, current_node = heapq.heappop(self.frontier)
+        self.current_node = current_node
         current_board = current_node.board
         
         # Bỏ qua các node đã nằm trong reached

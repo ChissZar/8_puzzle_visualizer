@@ -58,10 +58,14 @@ class IDSSolver:
             else:
                 # Nếu không có cutoff nào xảy ra mà vẫn trống -> Vét cạn toàn bộ cây đồ thị nhưng không thấy đích
                 self.failure = True
-                return {"status": "failure"}
+                return {
+                "status": "failure",
+                "current": getattr(self, 'current_node', self.initial_node) # Gửi node cuối lên UI
+            }
 
         # node <- POP(frontier)
         current_node = self.frontier.pop()
+        self.current_node = current_node
         
         # if problem.IS-GOAL(node.STATE) then return node 
         if current_node.is_goal():

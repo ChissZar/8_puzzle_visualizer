@@ -71,9 +71,13 @@ class AStarSolver:
             
         if not self.frontier:
             self.is_finished = True
-            return {"status": "failure"}
+            return {
+                "status": "failure",
+                "current": getattr(self, 'current_node', self.initial_node) # Gửi node cuối lên UI
+            }
 
         current_node = heapq.heappop(self.frontier)
+        self.current_node = current_node
 
         if current_node.board == self.goal_board:
             self.is_finished = True

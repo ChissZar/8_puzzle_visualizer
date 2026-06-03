@@ -33,10 +33,14 @@ class DFSSolver:
         # while not IS-EMPTY(frontier)
         if not self.frontier:
             self.failure = True
-            return {"status": "failure"}
+            return {
+                "status": "failure",
+                "current": getattr(self, 'current_node', self.initial_node) # Gửi node cuối lên UI
+            }
 
         # node <- POP(frontier) (Dùng LIFO Stack nên lấy ở cuối)
         current_node = self.frontier.pop()
+        self.current_node = current_node
         
         # if problem.IS-GOAL(node.STATE) then return node
         if current_node.is_goal():

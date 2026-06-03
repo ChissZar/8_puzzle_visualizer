@@ -38,10 +38,14 @@ class BFSSolver:
         # if IS-EMPTY(frontier)
         if not self.frontier:
             self.failure = True
-            return {"status": "failure"}
+            return {
+                "status": "failure",
+                "current": getattr(self, 'current_node', self.initial_node)
+            }
 
         # node <- POP(frontier)
         current_node = self.frontier.popleft()
+        self.current_node = current_node
         
         # for each child in EXPAND(problem, node)
         children_dict = current_node.get_children()

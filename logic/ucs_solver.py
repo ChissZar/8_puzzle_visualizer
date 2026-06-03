@@ -47,10 +47,14 @@ class UCSSolver:
 
         if not self.frontier:
             self.failure = True
-            return {"status": "failure"}
+            return {
+                "status": "failure",
+                "current": getattr(self, 'current_node', self.initial_node) # Gửi node cuối lên UI
+            }
 
         # Lấy Node có tổng chi phí thấp nhất ra khỏi Queue
         current_cost, _, current_node = heapq.heappop(self.frontier)
+        self.current_node = current_node
 
         if current_node.is_goal():
             self.is_solved = True

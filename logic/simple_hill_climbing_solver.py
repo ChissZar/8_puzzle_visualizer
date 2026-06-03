@@ -45,16 +45,21 @@ class SimpleHillClimbingSolver:
         return successors
 
     def step(self):
+
         if self.is_finished:
             return None
-            
+        
+        # Nếu frontier rỗng, chính thức báo Failure
         if not self.frontier:
-            # Nếu frontier rỗng nghĩa là đã kẹt ở cực đại cục bộ vòng trước
             self.is_finished = True
-            return {"status": "failure"}
+            return {
+                "status": "failure",
+                "current": getattr(self, 'current_node', self.initial_node)
+            }
 
-        # Lấy Current_State ra
-        current_node = self.frontier.pop(0)
+        # Lưu vết lại node hiện tại trước khi xử lý
+        self.current_node = self.frontier.pop(0)
+        current_node = self.current_node
 
         # KIỂM TRA GOAL NGAY TỪ ĐẦU
         if current_node.board == self.goal_board:
@@ -77,7 +82,6 @@ class SimpleHillClimbingSolver:
             }
 
         children_info = {}
-        found_better = False
         
         # SINH LẦN LƯỢT CÁC LÂN CẬN
         for move, m_board in self.get_successors(current_node):
@@ -88,15 +92,10 @@ class SimpleHillClimbingSolver:
             if h_m < current_node.h:
                 self.frontier.append(m_node)
                 children_info[move] = {"node": m_node, "type": "new"} # Màu xanh lá
-                found_better = True
                 break 
             else:
                 # Nếu không tốt hơn, đánh dấu đỏ (từ chối)
                 children_info[move] = {"node": m_node, "type": "reached"}
-
-        # Nếu quét hết lân cận mà không có cái nào tốt hơn -> Đạt cực đại cục bộ
-        if not found_better:
-            self.is_finished = True
 
         return {
             "status": "running",

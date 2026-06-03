@@ -10,9 +10,11 @@ from logic.astar_solver import AStarSolver
 from logic.ida_star_solver import IDAStarSolver
 from logic.simple_hill_climbing_solver import SimpleHillClimbingSolver
 from logic.steepest_ascent_hill_climbing_solver import SteepestAscentHillClimbingSolver
+from logic.stochastic_hill_climbing_solver import StochasticHillClimbingSolver
+from logic.random_restart_hill_climbing_solver import RandomRestartHillClimbingSolver
+from logic.local_beam_search_solver import LocalBeamSearchSolver
 from ui.board_widget import BoardWidget
 
-# Bảng màu Neon Cyberpunk Theme
 BG_MAIN = "#0f172a"      
 BG_PANEL = "#1e293b"     
 TEXT_MAIN = "#f8fafc"    
@@ -45,7 +47,10 @@ class MainWindow:
             "A* Search (Inversions + Misplaced)": AStarSolver,
             "IDA* Search (Manhattan + Misplaced)": IDAStarSolver,
             "Simple Hill Climbing (Manhattan)": SimpleHillClimbingSolver,
-            "Steepest-Ascent Hill Climbing (Manhattan)": SteepestAscentHillClimbingSolver
+            "Steepest-Ascent Hill Climbing (Manhattan)": SteepestAscentHillClimbingSolver,
+            "Stochastic Hill Climbing (Manhattan)": StochasticHillClimbingSolver,
+            "Random Restart Hill Climbing (Manhattan)": RandomRestartHillClimbingSolver,
+            "Local Beam Search (k=2)": LocalBeamSearchSolver
         }
 
         self.algo_docs = {
@@ -57,7 +62,10 @@ class MainWindow:
             "A*": "== A* SEARCH ==\n- Loại: Informed Search\n- Công thức: f(n) = g(n) + h(n)\n- Đặc điểm: Tính toán cả quá khứ g(n) và tương lai h(n). Tối ưu tuyệt đối.",
             "IDA*": "== ITERATIVE DEEPENING A* ==\n- Loại: Informed Search\n- Cơ chế: Giống IDS nhưng cắt tỉa bằng ngưỡng f_limit.\n- Ưu điểm: Hiệu năng cực cao, tốn siêu ít RAM.",
             "Simple HC": "== SIMPLE HILL CLIMBING ==\n- Loại: Local Search (Leo đồi)\n- Cơ chế: Duyệt L->R->U->D, gặp trạng thái tốt hơn là CHỐT NGAY, bỏ qua các hướng còn lại.\n- Điểm yếu: Dễ kẹt cực đại cục bộ.",
-            "Steepest HC": "== STEEPEST-ASCENT HILL CLIMBING ==\n- Loại: Local Search (Leo đồi dốc nhất)\n- Cơ chế: Sinh TOÀN BỘ lân cận, cân đo đong đếm tìm ra hướng TỐT NHẤT rồi mới đi.\n- Đặc điểm: Bài bản, chậm mà chắc."
+            "Steepest HC": "== STEEPEST-ASCENT HILL CLIMBING ==\n- Loại: Local Search (Leo đồi dốc nhất)\n- Cơ chế: Sinh TOÀN BỘ lân cận, cân đo đong đếm tìm ra hướng TỐT NHẤT rồi mới đi.\n- Đặc điểm: Bài bản, chậm mà chắc.",
+            "Stochastic HC": "== STOCHASTIC HILL CLIMBING ==\n- Loại: Local Search (Ngẫu nhiên)\n- Đặc điểm: Lọc ra danh sách 'Better Neighbors', sau đó bốc NGẪU NHIÊN 1 trạng thái để đi tiếp. Giúp tránh kẹt lối mòn.",
+            "Restart HC": "== RANDOM RESTART HILL CLIMBING ==\n- Cơ chế: Nếu kẹt cực đại cục bộ, thuật toán sẽ quay về ĐÚNG VẠCH XUẤT PHÁT (Start) để leo đồi lại. Dựa vào việc chọn ngẫu nhiên các lân cận (Stochastic), kỳ vọng lần chạy sau sẽ rẽ sang nhánh khác để thoát kẹt.\n- Phân tích: Áp dụng vào 8-Puzzle thường kém hiệu quả vì tập 'Better Neighbors' quá ít, thuật toán dễ đi lại vào vết xe đổ cũ.",
+            "Beam Search": "== LOCAL BEAM SEARCH (k) ==\n- Cơ chế: Khởi tạo k trạng thái (chùm). Ở mỗi bước, sinh TẤT CẢ lân cận của k trạng thái này. Sau đó gom lại, sắp xếp và chỉ chọn ra đúng k trạng thái tốt nhất để đi tiếp.\n- Ưu điểm: Khắc phục nhược điểm 'đơn độc' của Hill Climbing, tránh kẹt cục bộ tốt hơn nhờ có nhiều 'nhánh' song song."
         }
         
         self.solver = None 
@@ -91,7 +99,7 @@ class MainWindow:
         self.left_sidebar.pack(side=tk.LEFT, fill=tk.Y, padx=(10, 5), pady=10)
         self.left_sidebar.pack_propagate(False)
 
-        # 1. Custom Input Matrix
+        # Custom Input Matrix
         tk.Label(self.left_sidebar, text="CUSTOM INITIAL BOARD", fg=HIGHLIGHT_GOLD, bg=BG_PANEL, font=('Fixedsys', 11, 'bold')).pack(anchor=tk.W, pady=(0, 5))
         self.ent_input = tk.Entry(self.left_sidebar, font=('Fixedsys', 14), bg=BG_MAIN, fg=TEXT_MAIN, insertbackground=TEXT_MAIN, relief=tk.FLAT)
         self.ent_input.insert(0, "1 2 3 4 0 6 7 5 8")
@@ -102,14 +110,14 @@ class MainWindow:
         self.ent_goal.insert(0, "1 2 3 4 5 6 7 8 0")
         self.ent_goal.pack(fill=tk.X, pady=(0, 15))
 
-        # 2. Speed Control Slider
+        # Speed Control Slider
         tk.Label(self.left_sidebar, text="AUTO PLAY SPEED (ms)", fg=TEXT_MUTED, bg=BG_PANEL, font=('Fixedsys', 10, 'bold')).pack(anchor=tk.W)
         self.slider_speed = tk.Scale(self.left_sidebar, from_=50, to=2000, orient=tk.HORIZONTAL, bg=BG_PANEL, fg=TEXT_MAIN,
                                      activebackground=ACCENT_BLUE, highlightthickness=0, relief=tk.FLAT, sliderlength=25)
         self.slider_speed.set(300) 
         self.slider_speed.pack(fill=tk.X, pady=(0, 20))
 
-        # 3. Global Action Button
+        # Global Action Button
         self.btn_control_frame = tk.Frame(self.left_sidebar, bg=BG_PANEL)
         self.btn_control_frame.pack(fill=tk.X, pady=(0, 10))
 
@@ -132,7 +140,7 @@ class MainWindow:
                                    font=('Fixedsys', 11, 'bold'), bg=ACCENT_RED, fg=TEXT_MAIN, relief=tk.FLAT, pady=8, cursor="hand2")
         self.btn_reset.pack(fill=tk.X, pady=(0, 20))
 
-        # 4. Algorithm Documentation Area
+        # Algorithm Documentation Area
         tk.Label(self.left_sidebar, text="ALGORITHM INFORMATION", fg=ACCENT_BLUE, bg=BG_PANEL, font=('Fixedsys', 11, 'bold')).pack(anchor=tk.W, pady=(5, 5))
         self.txt_docs = tk.Text(self.left_sidebar, font=('Fixedsys', 11), bg=BG_MAIN, fg=TEXT_MAIN, relief=tk.FLAT, wrap=tk.WORD, padx=10, pady=10)
         self.txt_docs.pack(fill=tk.BOTH, expand=True) # Cho phép giãn nở chiếm hết phần dư dưới cùng
@@ -168,7 +176,7 @@ class MainWindow:
         self.cb_informed.bind("<<ComboboxSelected>>", lambda e: self.reset_environment())
 
         self.cb_local = ttk.Combobox(self.tab_local, state="readonly", font=('Fixedsys', 12), width=50)
-        self.cb_local['values'] = ["Simple Hill Climbing (Manhattan)", "Steepest-Ascent Hill Climbing (Manhattan)"]
+        self.cb_local['values'] = ["Simple Hill Climbing (Manhattan)", "Steepest-Ascent Hill Climbing (Manhattan)", "Stochastic Hill Climbing (Manhattan)", "Random Restart Hill Climbing (Manhattan)", "Local Beam Search (k=2)"]
         self.cb_local.current(0)
         self.cb_local.pack(anchor=tk.W, padx=15, pady=15)
         self.cb_local.bind("<<ComboboxSelected>>", lambda e: self.reset_environment())
@@ -204,18 +212,13 @@ class MainWindow:
             board = BoardWidget(wrapper, bd=bd)
             board.pack(side=tk.TOP)
             
-            # Ép nhỏ font size xuống 9 và bỏ pady để tiết kiệm tối đa chiều cao
             lbl = tk.Label(wrapper, text="", fg=HIGHLIGHT_GOLD, bg=BG_PANEL, font=('Consolas', 9, 'bold'))
             lbl.pack(side=tk.TOP, pady=(0, 0)) 
             return board, lbl
 
-        # Rút gọn khoảng cách (padx, pady) giữa các ô cờ lại sát nhau hết mức
         self.node_up, self.lbl_up = create_node_with_cost(0, 1, pady=0)
         self.node_left, self.lbl_left = create_node_with_cost(1, 0, padx=15)
-        
-        # Ô Center thu hẹp khoảng cách từ 12 xuống chỉ còn 2
         self.node_center, self.lbl_center = create_node_with_cost(1, 1, padx=4, pady=2, bd=3)
-        
         self.node_right, self.lbl_right = create_node_with_cost(1, 2, padx=15)
         self.node_down, self.lbl_down = create_node_with_cost(2, 1, pady=0)
 
@@ -296,7 +299,16 @@ class MainWindow:
         self.solver = SolverClass(self.initial_board, goal_board=self.goal_board)
 
         self.txt_docs.delete("1.0", tk.END)
-        if "Hill Climbing" in selected_algo_name:
+        if "Stochastic" in selected_algo_name:
+            self.lbl_frontier_title.config(text="Better Neighbors:")
+            self.txt_docs.insert("1.0", self.algo_docs["Stochastic HC"])
+        elif "Beam Search" in selected_algo_name:
+            self.lbl_frontier_title.config(text="Current State Set -> Neighbors:")
+            self.txt_docs.insert("1.0", self.algo_docs["Beam Search"])
+        elif "Restart" in selected_algo_name:
+            self.lbl_frontier_title.config(text="Better Neighbors:")
+            self.txt_docs.insert("1.0", self.algo_docs["Restart HC"])
+        elif "Hill Climbing" in selected_algo_name:
             self.lbl_frontier_title.config(text="Neighbors:")
             doc_key = "Simple HC" if "Simple" in selected_algo_name else "Steepest HC"
             self.txt_docs.insert("1.0", self.algo_docs[doc_key])
@@ -323,7 +335,9 @@ class MainWindow:
         
         if "IDS" in selected_algo_name or "IDA*" in selected_algo_name:
             self.lbl_stats.config(text="Limit: 0 | Steps: 0 | Frontier: 1", fg=TEXT_MUTED)
-        elif "Hill Climbing" in selected_algo_name:
+        elif "Stochastic" in selected_algo_name or "Restart" in selected_algo_name:
+            self.lbl_stats.config(text="Steps: 0 | Better Neighbors: 1", fg=TEXT_MUTED)
+        elif "Hill Climbing" in selected_algo_name or "Beam Search" in selected_algo_name:
             self.lbl_stats.config(text="Steps: 0 | Neighbors: 1", fg=TEXT_MUTED)
         else:
             self.lbl_stats.config(text="Steps: 0 | Reached: 1 | Frontier: 1", fg=TEXT_MUTED)
@@ -344,6 +358,10 @@ class MainWindow:
         self.track_current_path(state_data)
 
     def previous_step(self):
+        if self.is_auto_playing:
+            self.is_auto_playing = False
+            self.btn_auto.config(text="Auto Play ⏵", bg=ACCENT_ORANGE)
+
         if not self.ui_history:
             return
         prev_step_count, prev_solver_state, prev_state_data = self.ui_history.pop()
@@ -394,7 +412,7 @@ class MainWindow:
         board_data = node_obj.board
         widget.update_board(board_data)
         
-        # BÓC TÁCH CHI PHÍ THÔNG MINH
+        # BÓC TÁCH CHI PHÍ
         cost_str = ""
         if "A*" in current_algo or "IDA*" in current_algo:
             if hasattr(node_obj, 'g') and hasattr(node_obj, 'h') and hasattr(node_obj, 'f'):
@@ -412,7 +430,7 @@ class MainWindow:
                 prefix = "h:" if "Greedy" in current_algo else "Cost:"
                 cost_str = f"{prefix} {val}"
                 
-        lbl_widget.config(text=cost_str) # In thông số ra cái Label bên dưới
+        lbl_widget.config(text=cost_str) 
 
         # Đổ màu trạng thái
         if info["type"] == "new":
@@ -457,9 +475,8 @@ class MainWindow:
             self.colorize_node(self.node_right, self.lbl_right, 'RIGHT', info, current_algo)
 
         if data["status"] == "success":
-            self.is_auto_playing = False
             self.btn_next.config(state=tk.DISABLED)
-            self.btn_auto.config(state=tk.DISABLED, text="Auto Play ⏵", bg=ACCENT_ORANGE)
+            self.btn_auto.config(state=tk.DISABLED) 
             self.lbl_stats.config(text="THE GOAL HAS BEEN FOUND!!!", fg=ACCENT_GREEN)
             
             current_board = data["solution_node"].board
@@ -498,10 +515,21 @@ class MainWindow:
             # IDS
             reached_val = data.get('reached_count', 0)
             stats_text = f"Limit: {data['current_l']} | Step: {self.step_count} | Reached: {reached_val} | Frontier: {data['frontier_count']}"
-        elif "Hill Climbing" in current_algo:
-            # HILL CLIMBING
+        # Local Beam Search
+        elif "Beam Search" in current_algo:
             h_val = data['current'].h if hasattr(data['current'], 'h') else "N/A"
-            stats_text = f"Step: {self.step_count} | Neighbors: {data['frontier_count']} | h(n) = {h_val}"
+            k_val = data.get('beam_k', 2)
+            stats_text = f"Step: {self.step_count} | Beam (k={k_val}) | Neighbors: {data['frontier_count']} | h(n) = {h_val}"
+        elif "Hill Climbing" in current_algo:
+            # Hill Climbing
+            h_val = data['current'].h if hasattr(data['current'], 'h') else "N/A"
+            restarts = data.get('restart_count', 0)
+            restart_str = f" | Restarts: {restarts}" if "Restart" in current_algo else ""
+            
+            if "Stochastic" in current_algo or "Restart" in current_algo:
+                stats_text = f"Step: {self.step_count} | Better Neighbors: {data['frontier_count']} | h(n) = {h_val}{restart_str}"
+            else:
+                stats_text = f"Step: {self.step_count} | Neighbors: {data['frontier_count']} | h(n) = {h_val}"
         elif hasattr(data["current"], 'f') and hasattr(data["current"], 'h'): 
             if "Greedy" in current_algo:
                 # GREEDY
@@ -536,17 +564,20 @@ class MainWindow:
             self.run_auto_step()
         else:
             self.is_auto_playing = False
-            self.btn_auto.config(text="Auto Play ⏵", bg=ACCENT_ORANGE) 
-            self.btn_next.config(state=tk.NORMAL) 
+            self.btn_auto.config(text="Auto Play ⏵", bg=ACCENT_ORANGE)
+
+            if self.current_state_data and self.current_state_data.get("status") in ["success", "failure"]:
+                self.btn_next.config(state=tk.DISABLED)
+                self.btn_auto.config(state=tk.DISABLED)
+            else:
+                self.btn_next.config(state=tk.NORMAL)
+                self.btn_auto.config(state=tk.NORMAL)
 
     def run_auto_step(self):
         if self.is_auto_playing:
-            self.step_count += 1
-            state_data = self.solver.step()
-            self.update_ui_from_state(state_data)
-            self.track_current_path(state_data)
+            self.next_step()
             
-            if state_data and state_data["status"] not in ["success", "failure"]:
+            if self.current_state_data and self.current_state_data.get("status") not in ["success", "failure"]:
                 speed = self.slider_speed.get()
                 self.root.after(speed, self.run_auto_step) 
             else:

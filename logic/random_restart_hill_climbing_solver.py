@@ -1,19 +1,24 @@
-class SAHCNode:
+import random
+
+class RRHCNode:
     def __init__(self, board, parent=None, move=None, h=0):
         self.board = tuple(board)
         self.parent = parent
         self.move = move
         self.h = h
-        self.f = h # Mượn biến f để UI tự động in chữ h(n) ra màn hình
+        self.f = h
 
-class SteepestAscentHillClimbingSolver:
+class RandomRestartHillClimbingSolver:
     def __init__(self, initial_board, goal_board=(1, 2, 3, 4, 5, 6, 7, 8, 0)):
         self.initial_board = tuple(initial_board)
         self.goal_board = tuple(goal_board)
         
-        # Tính h(n) cho Start bằng khoảng cách Manhattan
+        self.max_restart = 50 
+        self.restart_count = 0
+        
         start_h = self.calculate_manhattan(self.initial_board)
-        self.initial_node = SAHCNode(self.initial_board, parent=None, move=None, h=start_h)
+        # Lưu trữ cứng Node ban đầu để dùng cho mỗi lần Restart
+        self.initial_node = RRHCNode(self.initial_board, parent=None, move=None, h=start_h)
         
         self.frontier = [self.initial_node]
         self.is_finished = False
@@ -32,9 +37,7 @@ class SteepestAscentHillClimbingSolver:
         empty_idx = node.board.index(0)
         row, col = empty_idx // 3, empty_idx % 3
         
-        # THỨ TỰ DUYỆT: L -> R -> U -> D
         moves = [('LEFT', 0, -1), ('RIGHT', 0, 1), ('UP', -1, 0), ('DOWN', 1, 0)]
-        
         for move, dr, dc in moves:
             new_row, new_col = row + dr, col + dc
             if 0 <= new_row < 3 and 0 <= new_col < 3:
@@ -42,15 +45,13 @@ class SteepestAscentHillClimbingSolver:
                 new_board = list(node.board)
                 new_board[empty_idx], new_board[new_idx] = new_board[new_idx], new_board[empty_idx]
                 successors.append((move, tuple(new_board)))
-                
         return successors
 
     def step(self):
 
         if self.is_finished:
             return None
-        
-        # Nếu frontier rỗng, chính thức báo Failure
+            
         if not self.frontier:
             self.is_finished = True
             return {
@@ -58,11 +59,11 @@ class SteepestAscentHillClimbingSolver:
                 "current": getattr(self, 'current_node', self.initial_node)
             }
 
-        # Lưu vết lại node hiện tại trước khi xử lý
+        # Lấy node hiện tại ra xét
         self.current_node = self.frontier.pop(0)
         current_node = self.current_node
 
-        # KIỂM TRA GOAL
+        # KIỂM TRA ĐÍCH
         if current_node.board == self.goal_board:
             self.is_finished = True
             path = []
@@ -70,7 +71,7 @@ class SteepestAscentHillClimbingSolver:
             while curr:
                 path.append(curr)
                 curr = curr.parent
-            path.reverse()
+            path.reverse() 
             
             return {
                 "status": "success",
@@ -78,39 +79,48 @@ class SteepestAscentHillClimbingSolver:
                 "solution_node": current_node,
                 "path": path,
                 "reached_count": 0,
-                "frontier_count": len(self.frontier),
+                "frontier_count": 0,
                 "frontier_preview": [n.board for n in self.frontier]
             }
 
         children_info = {}
         all_successors = []
-        best_node = None
-        min_h = float('inf') # Đặt min ban đầu là vô cùng lớn
+        better_neighbors = []
         
+        # Sinh lân cận
         for move, m_board in self.get_successors(current_node):
             h_m = self.calculate_manhattan(m_board)
-            m_node = SAHCNode(m_board, parent=current_node, move=move, h=h_m)
+            m_node = RRHCNode(m_board, parent=current_node, move=move, h=h_m)
             all_successors.append((move, m_node))
             
-            # Tìm lân cận có h nhỏ nhất
-            if h_m < min_h:
-                min_h = h_m
-                best_node = m_node
+            # Lọc ra các lân cận tốt hơn (h nhỏ hơn)
+            if h_m < current_node.h:
+                better_neighbors.append((move, m_node))
 
-        if min_h < current_node.h:
-            # Nếu tốt hơn -> Chấp nhận best_node
-            self.frontier.append(best_node)
+        # NẾU KHÔNG CÓ LÂN CẬN TỐT HƠN -> KẸT CỰC ĐẠI CỤC BỘ
+        if not better_neighbors:
+            if self.restart_count < self.max_restart:
+                self.restart_count += 1
+                
+                # QUAY VỀ VẠCH XUẤT PHÁT: Nạp lại đúng initial_node vào Frontier
+                self.frontier.append(self.initial_node)
+                
+                # Vẫn báo đỏ các lân cận để UI biết là kẹt
+                for move, m_node in all_successors:
+                    children_info[move] = {"node": m_node, "type": "reached"}
+            else:
+                for move, m_node in all_successors:
+                    children_info[move] = {"node": m_node, "type": "reached"}
+        else:
+            # Nếu còn đường đi tốt, bốc Random 1 hướng như Stochastic HC
+            chosen_move, chosen_node = random.choice(better_neighbors)
+            self.frontier.append(chosen_node)
             
-            # Đổ màu cho UI: Tốt nhất màu Xanh, những node không được chọn màu Đỏ
             for move, m_node in all_successors:
-                if m_node == best_node:
+                if m_node == chosen_node:
                     children_info[move] = {"node": m_node, "type": "new"}
                 else:
                     children_info[move] = {"node": m_node, "type": "reached"}
-        else:
-            # Nếu không có thằng nào tốt hơn -> Đạt cực đại cục bộ, từ chối TẤT CẢ
-            for move, m_node in all_successors:
-                children_info[move] = {"node": m_node, "type": "reached"}
 
         return {
             "status": "running",
@@ -118,5 +128,6 @@ class SteepestAscentHillClimbingSolver:
             "children_info": children_info,
             "frontier_preview": [n.board for n in self.frontier],
             "reached_count": 0,
-            "frontier_count": len(self.frontier)
+            "frontier_count": len(better_neighbors),
+            "restart_count": self.restart_count # Gửi số lần restart lên UI
         }

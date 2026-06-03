@@ -73,7 +73,10 @@ class IDAStarSolver:
         if not self.frontier:
             if self.next_threshold == math.inf:
                 self.is_finished = True
-                return {"status": "failure"}
+                return {
+                "status": "failure",
+                "current": getattr(self, 'current_node', self.initial_node) # Gửi node cuối lên UI
+            }
             
             # Tăng ngưỡng f_limit và chuẩn bị chạy lại từ đầu
             self.threshold = self.next_threshold
@@ -89,6 +92,7 @@ class IDAStarSolver:
 
         # POP NODE TRÊN ĐỈNH STACK 
         current_node = self.frontier.pop()
+        self.current_node = current_node
         
         # Chống lặp vòng (Cycle Detection) bằng cách truy vết lại đường đi hiện tại
         self.path_set = set()
