@@ -13,9 +13,9 @@ class AStarNode:
         return self.f < other.f
 
 class AStarSolver:
-    def __init__(self, initial_board):
+    def __init__(self, initial_board, goal_board=(1, 2, 3, 4, 5, 6, 7, 8, 0)):
         self.initial_board = tuple(initial_board)
-        self.goal_board = (1, 2, 3, 4, 5, 6, 7, 8, 0) 
+        self.goal_board = tuple(goal_board)
         
         # Tính g và h cho nút Start theo ĐÚNG YÊU CẦU CỦA TRIẾT
         start_g = self.calculate_inversions(self.initial_board)

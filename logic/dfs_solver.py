@@ -1,8 +1,9 @@
 from logic.puzzle_state import PuzzleState
 
 class DFSSolver:
-    def __init__(self, initial_board):
-        self.initial_node = PuzzleState(initial_board)
+    def __init__(self, initial_board, goal_board=(1, 2, 3, 4, 5, 6, 7, 8, 0)):
+
+        self.initial_node = PuzzleState(initial_board, goal_board=goal_board)
         
         # frontier <- a LIFO stack, with node as an element
         self.frontier = [self.initial_node]
@@ -73,7 +74,7 @@ class DFSSolver:
                 children_info[move] = {"node": child_node, "type": "reached"}
 
         # Hiển thị các node mới nhất lên Frontier
-        frontier_preview_list = [node.board for node in self.frontier][-5:][::-1]
+        frontier_preview_list = [node.board for node in self.frontier][-10:][::-1]
 
         return {
             "status": "expanding",

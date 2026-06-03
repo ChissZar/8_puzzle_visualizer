@@ -2,9 +2,9 @@ import heapq
 from logic.puzzle_state import PuzzleState
 
 class GreedySolver:
-    def __init__(self, initial_board):
-        self.initial_node = PuzzleState(initial_board)
-        
+    def __init__(self, initial_board, goal_board=(1, 2, 3, 4, 5, 6, 7, 8, 0)):
+
+        self.initial_node = PuzzleState(initial_board, goal_board=goal_board)
         # Frontier dùng Priority Queue
         self.frontier = []
         self.counter = 0  # Bộ đếm phụ giúp phân định khi 2 Node có cùng chi phí Manhattan
@@ -87,9 +87,9 @@ class GreedySolver:
                 # Nếu m đã có trong frontier hoặc reached -> Bỏ qua m
                 children_info[move] = {"node": child_node, "type": "reached"}
 
-        # Sắp xếp và hiển thị 5 Node có chi phí Manhattan thấp nhất lên thanh Frontier của UI
+        # Sắp xếp và hiển thị 10 Node có chi phí Manhattan thấp nhất lên thanh Frontier của UI
         sorted_frontier = sorted(self.frontier, key=lambda x: x[0])
-        frontier_preview_list = [item[2].board for item in sorted_frontier][:5]
+        frontier_preview_list = [item[2].board for item in sorted_frontier][:10]
 
         return {
             "status": "expanding",

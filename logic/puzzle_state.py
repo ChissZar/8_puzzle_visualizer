@@ -1,14 +1,15 @@
 class PuzzleState:
-    def __init__(self, board, parent=None, move=None):
+
+    # THÊM THAM SỐ goal_board VÀO HÀM KHỞI TẠO 
+    def __init__(self, board, parent=None, move=None, goal_board=(1, 2, 3, 4, 5, 6, 7, 8, 0)):
         self.board = tuple(board)
+        self.goal_board = tuple(goal_board) # Lưu lại đích đến để tính toán
         self.parent = parent
         self.move = move  
         self.depth = 0 if parent is None else parent.depth + 1
 
     def is_goal(self):
-        return self.board == (1, 2, 3, 
-                              4, 5, 6, 
-                              7, 8, 0)
+        return self.board == self.goal_board
 
     def get_children(self, is_lifo=False):
         children = {}
@@ -28,7 +29,9 @@ class PuzzleState:
                 new_idx = nr * 3 + nc
                 new_board = list(self.board)
                 new_board[idx], new_board[new_idx] = new_board[new_idx], new_board[idx]
-                children[move_name] = PuzzleState(new_board, self, move_name)
+                
+                # TRUYỀN CẢ GOAL BOARD CHO CÁC NODE CON ĐỂ NÓ NHỚ ĐÍCH LÀ GÌ
+                children[move_name] = PuzzleState(new_board, self, move_name, self.goal_board)
                 
         return children
 
@@ -42,14 +45,12 @@ class PuzzleState:
         return False
     
     def heuristic_manhattan(self):
-        """Hàm Heuristic h(n): Tính tổng khoảng cách Manhattan của các ô từ 1 đến 8 về đích"""
-        # Định nghĩa tọa độ (hàng, cột) đúng của các số từ 0 đến 8 ở trạng thái ĐÍCH
-        # Đích chuẩn: (1, 2, 3, 4, 5, 6, 7, 8, 0)
-        goal_positions = {
-            1: (0, 0), 2: (0, 1), 3: (0, 2),
-            4: (1, 0), 5: (1, 1), 6: (1, 2),
-            7: (2, 0), 8: (2, 1), 0: (2, 2)  # Ô trống số 0 sẽ bỏ qua không tính
-        }
+        """Hàm Heuristic h(n): Tính tổng khoảng cách Manhattan linh hoạt theo Đích Tùy Chỉnh"""
+        # TỰ ĐỘNG QUÉT VÀ TẠO TỌA ĐỘ ĐÍCH MỚI DỰA TRÊN THÔNG SỐ NHẬP VÀO
+        goal_positions = {}
+        for i in range(9):
+            val = self.goal_board[i]
+            goal_positions[val] = (i // 3, i % 3) # Lưu (row, col) của từng giá trị ở bảng Đích
         
         total_distance = 0
         
@@ -61,10 +62,8 @@ class PuzzleState:
                 current_row = i // 3
                 current_col = i % 3
                 
-                # Tọa độ đúng ở trạng thái đích
+                # Tọa độ đúng ở trạng thái đích (lấy từ dict vừa tạo)
                 goal_row, goal_col = goal_positions[val]
-                
-                # Áp dụng công thức trị tuyệt đối: |x1 - x2| + |y1 - y2|
                 total_distance += abs(current_row - goal_row) + abs(current_col - goal_col)
                 
         return total_distance

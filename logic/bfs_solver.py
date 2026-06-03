@@ -2,8 +2,9 @@ from collections import deque
 from logic.puzzle_state import PuzzleState
 
 class BFSSolver:
-    def __init__(self, initial_board):
-        self.initial_node = PuzzleState(initial_board)
+    def __init__(self, initial_board, goal_board=(1, 2, 3, 4, 5, 6, 7, 8, 0)):
+
+        self.initial_node = PuzzleState(initial_board, goal_board=goal_board)
         
         # frontier <- a FIFO queue
         self.frontier = deque([self.initial_node])
@@ -72,7 +73,7 @@ class BFSSolver:
             "status": "expanding",
             "current": current_node,
             "children_info": children_info, # Thông tin để vẽ 4 ô xung quanh
-            "frontier_preview": [node.board for node in self.frontier][:5], # Lấy 5 phần tử đầu cho Queue trên UI
+            "frontier_preview": [node.board for node in self.frontier][:10], # Lấy 10 phần tử đầu cho Queue trên UI
             "reached_count": len(self.reached),
             "frontier_count": len(self.frontier)
         }

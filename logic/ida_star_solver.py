@@ -10,9 +10,9 @@ class IDAStarNode:
         self.f = g + h
 
 class IDAStarSolver:
-    def __init__(self, initial_board):
+    def __init__(self, initial_board, goal_board=(1, 2, 3, 4, 5, 6, 7, 8, 0)):
         self.initial_board = tuple(initial_board)
-        self.goal_board = (1, 2, 3, 4, 5, 6, 7, 8, 0)
+        self.goal_board = tuple(goal_board)
         
         # Khởi tạo g và h cho Start
         start_g = self.calculate_manhattan(self.initial_board)

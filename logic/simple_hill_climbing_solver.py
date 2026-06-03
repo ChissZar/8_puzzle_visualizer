@@ -7,9 +7,9 @@ class HCNode:
         self.f = h 
 
 class SimpleHillClimbingSolver:
-    def __init__(self, initial_board):
+    def __init__(self, initial_board, goal_board=(1, 2, 3, 4, 5, 6, 7, 8, 0)):
         self.initial_board = tuple(initial_board)
-        self.goal_board = (1, 2, 3, 4, 5, 6, 7, 8, 0)
+        self.goal_board = tuple(goal_board)
         
         # Tính h(n) cho Start bằng khoảng cách Manhattan
         start_h = self.calculate_manhattan(self.initial_board)

@@ -1,7 +1,6 @@
 import copy
-from platform import node
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 from logic.bfs_solver import BFSSolver
 from logic.dfs_solver import DFSSolver
 from logic.ids_solver import IDSSolver
@@ -13,21 +12,30 @@ from logic.simple_hill_climbing_solver import SimpleHillClimbingSolver
 from logic.steepest_ascent_hill_climbing_solver import SteepestAscentHillClimbingSolver
 from ui.board_widget import BoardWidget
 
+# Bảng màu Neon Cyberpunk Theme
+BG_MAIN = "#0f172a"      
+BG_PANEL = "#1e293b"     
+TEXT_MAIN = "#f8fafc"    
+TEXT_MUTED = "#94a3b8"   
+ACCENT_BLUE = "#38bdf8"  
+ACCENT_GREEN = "#4ade80" 
+ACCENT_ORANGE = "#fb923c"
+ACCENT_RED = "#f87171"   
+HIGHLIGHT_GOLD = "#facc15"
+
 class MainWindow:
     def __init__(self, root):
         self.root = root
-        self.root.title("8-Puzzle Search Visualizer")
-        self.root.configure(bg="#2c3e50")
+        self.root.title("8-Puzzle Visualizer")
+        self.root.configure(bg=BG_MAIN)
+        self.root.state('zoomed') 
         
         self.is_auto_playing = False
         self.solution_path = []
         self.step_count = 0
+        self.initial_board = (1, 2, 3, 4, 0, 6, 7, 5, 8) 
+        self.goal_board = (1, 2, 3, 4, 5, 6, 7, 8, 0)
         
-        self.initial_board = (1, 2, 3, 
-                              4, 0, 6, 
-                              7, 5, 8) 
-        
-        # Từ điển ánh xạ Tên Thuật Toán -> Class Solver
         self.algorithms = {
             "BFS (Breadth-First Search)": BFSSolver,
             "DFS (Depth-First Search)": DFSSolver,
@@ -39,237 +47,437 @@ class MainWindow:
             "Simple Hill Climbing (Manhattan)": SimpleHillClimbingSolver,
             "Steepest-Ascent Hill Climbing (Manhattan)": SteepestAscentHillClimbingSolver
         }
-        
-        self.solver = None # Sẽ được khởi tạo khi gọi reset_environment()
 
+        self.algo_docs = {
+            "BFS": "== BREADTH-FIRST SEARCH ==\n- Loại: Uninformed Search\n- Chiến lược: Duyệt hàng ngang (FIFO)\n- Độ phức tạp: O(b^d)\n- Bộ nhớ: Tốn kém (Lưu toàn bộ cây)\n- Tính tối ưu: Có (nếu cost = 1)",
+            "DFS": "== DEPTH-FIRST SEARCH ==\n- Loại: Uninformed Search\n- Chiến lược: Duyệt sâu tận đáy (LIFO)\n- Độ phức tạp: O(b^m)\n- Bộ nhớ: Rất tiết kiệm O(bm)\n- Tính tối ưu: KHÔNG",
+            "IDS": "== ITERATIVE DEEPENING ==\n- Loại: Uninformed Search\n- Chiến lược: Kết hợp DFS và BFS\n- Cơ chế: Tăng dần giới hạn độ sâu l\n- Ưu điểm: Tiết kiệm bộ nhớ như DFS nhưng đảm bảo tối ưu như BFS.",
+            "UCS": "== UNIFORM COST SEARCH ==\n- Loại: Uninformed Search\n- Chiến lược: Mở rộng node có g(n) thấp nhất\n- Thuật toán gốc: Dijkstra\n- Tính tối ưu: Luôn tối ưu mọi trường hợp.",
+            "Greedy": "== GREEDY BEST-FIRST SEARCH ==\n- Loại: Informed Search\n- Chiến lược: Đi theo Heuristic h(n) tốt nhất\n- Đặc điểm: Tìm đường cực nhanh nhưng dễ sa đà, không đảm bảo tối ưu.",
+            "A*": "== A* SEARCH ==\n- Loại: Informed Search\n- Công thức: f(n) = g(n) + h(n)\n- Đặc điểm: Tính toán cả quá khứ g(n) và tương lai h(n). Tối ưu tuyệt đối.",
+            "IDA*": "== ITERATIVE DEEPENING A* ==\n- Loại: Informed Search\n- Cơ chế: Giống IDS nhưng cắt tỉa bằng ngưỡng f_limit.\n- Ưu điểm: Hiệu năng cực cao, tốn siêu ít RAM.",
+            "Simple HC": "== SIMPLE HILL CLIMBING ==\n- Loại: Local Search (Leo đồi)\n- Cơ chế: Duyệt L->R->U->D, gặp trạng thái tốt hơn là CHỐT NGAY, bỏ qua các hướng còn lại.\n- Điểm yếu: Dễ kẹt cực đại cục bộ.",
+            "Steepest HC": "== STEEPEST-ASCENT HILL CLIMBING ==\n- Loại: Local Search (Leo đồi dốc nhất)\n- Cơ chế: Sinh TOÀN BỘ lân cận, cân đo đong đếm tìm ra hướng TỐT NHẤT rồi mới đi.\n- Đặc điểm: Bài bản, chậm mà chắc."
+        }
+        
+        self.solver = None 
         self.setup_ui()
-        self.reset_environment() # Khởi tạo lần đầu chạy app
+        self.reset_environment()
 
     def setup_ui(self):
-        # --- TOP FRAME: CHỌN THUẬT TOÁN ---
-        self.header_frame = tk.Frame(self.root, bg="#34495e", pady=10, bd=2, relief=tk.RAISED)
-        self.header_frame.pack(fill=tk.X)
+        style = ttk.Style()
+        style.theme_use('clam')
+        style.configure('TNotebook', background=BG_MAIN, borderwidth=0)
+        style.configure('TNotebook.Tab', background=BG_PANEL, foreground=TEXT_MUTED, font=('Fixedsys', 11, 'bold'), padding=[15, 8])
+        style.map('TNotebook.Tab', background=[('selected', ACCENT_BLUE)], foreground=[('selected', BG_MAIN)])
+        style.configure('TCombobox', fieldbackground=BG_PANEL, background=BG_MAIN, foreground=TEXT_MAIN)
+        style.map('TCombobox',
+                  fieldbackground=[('readonly', BG_PANEL)],
+                  selectbackground=[('readonly', BG_PANEL)],
+                  selectforeground=[('readonly', TEXT_MAIN)],
+                  foreground=[('readonly', TEXT_MAIN)])
 
-        tk.Label(self.header_frame, text="Algorithm:", fg="white", bg="#34495e", font=('Arial', 12, 'bold')).pack(side=tk.LEFT, padx=10)
+        # Can thiệp vào hệ thống của Tkinter
+        self.root.option_add('*TCombobox*Listbox.font', ('Fixedsys', 12, 'bold')) 
+        self.root.option_add('*TCombobox*Listbox.background', BG_PANEL)
+        self.root.option_add('*TCombobox*Listbox.foreground', TEXT_MAIN)
+        self.root.option_add('*TCombobox*Listbox.selectBackground', ACCENT_BLUE)
+        self.root.option_add('*TCombobox*Listbox.selectForeground', BG_MAIN)
+
+        # ==========================================
+        # LEFT COLUMN: SIDEBAR CONTROLS & DOCS
+        # ==========================================
+        self.left_sidebar = tk.Frame(self.root, bg=BG_PANEL, padx=20, pady=20, width=380)
+        self.left_sidebar.pack(side=tk.LEFT, fill=tk.Y, padx=(10, 5), pady=10)
+        self.left_sidebar.pack_propagate(False)
+
+        # 1. Custom Input Matrix
+        tk.Label(self.left_sidebar, text="CUSTOM INITIAL BOARD", fg=HIGHLIGHT_GOLD, bg=BG_PANEL, font=('Fixedsys', 11, 'bold')).pack(anchor=tk.W, pady=(0, 5))
+        self.ent_input = tk.Entry(self.left_sidebar, font=('Fixedsys', 14), bg=BG_MAIN, fg=TEXT_MAIN, insertbackground=TEXT_MAIN, relief=tk.FLAT)
+        self.ent_input.insert(0, "1 2 3 4 0 6 7 5 8")
+        self.ent_input.pack(fill=tk.X, pady=(0, 15))
+
+        tk.Label(self.left_sidebar, text="CUSTOM GOAL BOARD", fg=ACCENT_GREEN, bg=BG_PANEL, font=('Fixedsys', 11, 'bold')).pack(anchor=tk.W, pady=(0, 2))
+        self.ent_goal = tk.Entry(self.left_sidebar, font=('Fixedsys', 14), bg=BG_MAIN, fg=TEXT_MAIN, insertbackground=TEXT_MAIN, relief=tk.FLAT)
+        self.ent_goal.insert(0, "1 2 3 4 5 6 7 8 0")
+        self.ent_goal.pack(fill=tk.X, pady=(0, 15))
+
+        # 2. Speed Control Slider
+        tk.Label(self.left_sidebar, text="AUTO PLAY SPEED (ms)", fg=TEXT_MUTED, bg=BG_PANEL, font=('Fixedsys', 10, 'bold')).pack(anchor=tk.W)
+        self.slider_speed = tk.Scale(self.left_sidebar, from_=50, to=2000, orient=tk.HORIZONTAL, bg=BG_PANEL, fg=TEXT_MAIN,
+                                     activebackground=ACCENT_BLUE, highlightthickness=0, relief=tk.FLAT, sliderlength=25)
+        self.slider_speed.set(300) 
+        self.slider_speed.pack(fill=tk.X, pady=(0, 20))
+
+        # 3. Global Action Button
+        self.btn_control_frame = tk.Frame(self.left_sidebar, bg=BG_PANEL)
+        self.btn_control_frame.pack(fill=tk.X, pady=(0, 10))
+
+        self.btn_prev = tk.Button(self.btn_control_frame, text="◀ Prev Step", command=self.previous_step, 
+                                  font=('Fixedsys', 11, 'bold'), bg=TEXT_MUTED, fg=BG_MAIN, relief=tk.FLAT, pady=8, cursor="hand2")
+        self.btn_prev.grid(row=0, column=0, sticky="ew", padx=(0, 5))
+
+        self.btn_next = tk.Button(self.btn_control_frame, text="Next Step ▶", command=self.next_step, 
+                                  font=('Fixedsys', 11, 'bold'), bg=ACCENT_GREEN, fg=BG_MAIN, relief=tk.FLAT, pady=8, cursor="hand2")
+        self.btn_next.grid(row=0, column=1, sticky="ew", padx=(5, 0))
+
+        self.btn_control_frame.columnconfigure(0, weight=1)
+        self.btn_control_frame.columnconfigure(1, weight=1)
+
+        self.btn_auto = tk.Button(self.left_sidebar, text="Auto Play ⏵", command=self.toggle_auto_play, 
+                                  font=('Fixedsys', 13, 'bold'), bg=ACCENT_ORANGE, fg=BG_MAIN, relief=tk.FLAT, pady=10, cursor="hand2")
+        self.btn_auto.pack(fill=tk.X, pady=(0, 15))
+
+        self.btn_reset = tk.Button(self.left_sidebar, text="Apply Custom & Reset", command=self.apply_custom_input, 
+                                   font=('Fixedsys', 11, 'bold'), bg=ACCENT_RED, fg=TEXT_MAIN, relief=tk.FLAT, pady=8, cursor="hand2")
+        self.btn_reset.pack(fill=tk.X, pady=(0, 20))
+
+        # 4. Algorithm Documentation Area
+        tk.Label(self.left_sidebar, text="ALGORITHM INFORMATION", fg=ACCENT_BLUE, bg=BG_PANEL, font=('Fixedsys', 11, 'bold')).pack(anchor=tk.W, pady=(5, 5))
+        self.txt_docs = tk.Text(self.left_sidebar, font=('Fixedsys', 11), bg=BG_MAIN, fg=TEXT_MAIN, relief=tk.FLAT, wrap=tk.WORD, padx=10, pady=10)
+        self.txt_docs.pack(fill=tk.BOTH, expand=True) # Cho phép giãn nở chiếm hết phần dư dưới cùng
+
+        # ==========================================
+        # RIGHT COLUMN: ACADEMIC CHAPTER TABS
+        # ==========================================
+        self.right_container = tk.Frame(self.root, bg=BG_MAIN)
+        self.right_container.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5, pady=10)
+
+        self.notebook = ttk.Notebook(self.right_container)
+        self.notebook.pack(fill=tk.X, pady=(0, 10))
+        self.notebook.bind("<<NotebookTabChanged>>", self.on_tab_changed)
+
+        self.tab_uninformed = tk.Frame(self.notebook, bg=BG_MAIN)
+        self.tab_informed = tk.Frame(self.notebook, bg=BG_MAIN)
+        self.tab_local = tk.Frame(self.notebook, bg=BG_MAIN)
+
+        self.notebook.add(self.tab_uninformed, text="Chapter 1: Uninformed Search")
+        self.notebook.add(self.tab_informed, text="Chapter 2: Informed Search")
+        self.notebook.add(self.tab_local, text="Chapter 3: Local Search")
+
+        self.cb_uninformed = ttk.Combobox(self.tab_uninformed, state="readonly", font=('Fixedsys', 12), width=50)
+        self.cb_uninformed['values'] = ["BFS (Breadth-First Search)", "DFS (Depth-First Search)", "IDS (Iterative Deepening Search)", "UCS (Uniform Cost Search)"]
+        self.cb_uninformed.current(0)
+        self.cb_uninformed.pack(anchor=tk.W, padx=15, pady=15)
+        self.cb_uninformed.bind("<<ComboboxSelected>>", lambda e: self.reset_environment())
+
+        self.cb_informed = ttk.Combobox(self.tab_informed, state="readonly", font=('Fixedsys', 12), width=50)
+        self.cb_informed['values'] = ["Greedy Search (Manhattan)", "A* Search (Inversions + Misplaced)", "IDA* Search (Manhattan + Misplaced)"]
+        self.cb_informed.current(1) 
+        self.cb_informed.pack(anchor=tk.W, padx=15, pady=15)
+        self.cb_informed.bind("<<ComboboxSelected>>", lambda e: self.reset_environment())
+
+        self.cb_local = ttk.Combobox(self.tab_local, state="readonly", font=('Fixedsys', 12), width=50)
+        self.cb_local['values'] = ["Simple Hill Climbing (Manhattan)", "Steepest-Ascent Hill Climbing (Manhattan)"]
+        self.cb_local.current(0)
+        self.cb_local.pack(anchor=tk.W, padx=15, pady=15)
+        self.cb_local.bind("<<ComboboxSelected>>", lambda e: self.reset_environment())
+
+        # --- SHARED WORKSPACE DISPLAY PANELS ---
+        self.frontier_frame = tk.Frame(self.right_container, bg=BG_MAIN, pady=5)
+        self.frontier_frame.pack(fill=tk.X, padx=15)
         
-        self.combo_algo = ttk.Combobox(self.header_frame, values=list(self.algorithms.keys()), state="readonly", width=35, font=('Arial', 11))
-        self.combo_algo.current(0) # Mặc định chọn BFS
-        self.combo_algo.pack(side=tk.LEFT, padx=10)
-
-        self.btn_reset = tk.Button(self.header_frame, text="Apply & Reset", command=self.reset_environment, 
-                                  font=('Arial', 11, 'bold'), bg="#c0392b", fg="white")
-        self.btn_reset.pack(side=tk.LEFT, padx=10)
-
-        # --- FRONTIER FRAME ---
-        self.frontier_frame = tk.Frame(self.root, bg="#2c3e50", pady=10)
-        self.frontier_frame.pack(fill=tk.X)
-        
-        tk.Label(self.frontier_frame, text="Frontier:", fg="white", bg="#2c3e50", font=('Arial', 12, 'bold')).pack(side=tk.LEFT, padx=10)
+        self.lbl_frontier_title = tk.Label(self.frontier_frame, text="Frontier (Queue):", fg=TEXT_MUTED, bg=BG_MAIN, font=('Fixedsys', 12, 'bold'))
+        self.lbl_frontier_title.pack(side=tk.LEFT, padx=5)
         
         self.frontier_boards = []
-        for _ in range(5): 
+        for _ in range(10): 
             bw = BoardWidget(self.frontier_frame, size="mini")
             bw.pack(side=tk.LEFT, padx=5)
             self.frontier_boards.append(bw)
 
-        # --- BODY FRAME ---
-        self.body_frame = tk.Frame(self.root, bg="#2c3e50")
-        self.body_frame.pack(pady=5, padx=10, fill=tk.BOTH, expand=True)
+        # --- CORE WORKSPACE: MATRIX EXPANSION & PATH LISTBOXES ---
+        self.workspace_frame = tk.Frame(self.right_container, bg=BG_MAIN)
+        self.workspace_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=5)
 
-        self.expand_frame = tk.Frame(self.body_frame, bg="#34495e", padx=15, pady=15, relief=tk.SUNKEN, bd=3)
-        self.expand_frame.grid(row=0, column=0, padx=10, sticky="nsew")
+        # KHU VỰC ĐỒ HỌA
+        self.center_wrapper = tk.Frame(self.workspace_frame, bg=BG_PANEL)
+        self.center_wrapper.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 15))
 
-        self.node_up = BoardWidget(self.expand_frame, bd=4)
-        self.node_up.grid(row=0, column=1, pady=5)
-        self.node_left = BoardWidget(self.expand_frame, bd=4)
-        self.node_left.grid(row=1, column=0, padx=5)
-        self.node_center = BoardWidget(self.expand_frame, bd=4)
-        self.node_center.grid(row=1, column=1, padx=15, pady=15)
-        self.node_right = BoardWidget(self.expand_frame, bd=4)
-        self.node_right.grid(row=1, column=2, padx=5)
-        self.node_down = BoardWidget(self.expand_frame, bd=4)
-        self.node_down.grid(row=2, column=1, pady=5)
+        self.expand_frame = tk.Frame(self.center_wrapper, bg=BG_PANEL)
+        self.expand_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
 
-        self.path_frame = tk.Frame(self.body_frame, bg="#34495e", padx=15, pady=15, relief=tk.SUNKEN, bd=3)
-        self.path_frame.grid(row=0, column=1, padx=10, sticky="nsew")
+        def create_node_with_cost(row, col, padx=0, pady=0, bd=2):
+            wrapper = tk.Frame(self.expand_frame, bg=BG_PANEL)
+            wrapper.grid(row=row, column=col, padx=padx, pady=pady)
+            
+            board = BoardWidget(wrapper, bd=bd)
+            board.pack(side=tk.TOP)
+            
+            # Ép nhỏ font size xuống 9 và bỏ pady để tiết kiệm tối đa chiều cao
+            lbl = tk.Label(wrapper, text="", fg=HIGHLIGHT_GOLD, bg=BG_PANEL, font=('Consolas', 9, 'bold'))
+            lbl.pack(side=tk.TOP, pady=(0, 0)) 
+            return board, lbl
 
-        tk.Label(self.path_frame, text="Solution Path:", fg="white", bg="#34495e", font=('Arial', 11, 'bold')).pack(pady=5)
-        self.path_listbox = tk.Listbox(self.path_frame, font=('Arial', 10), bg="#2c3e50", fg="white", selectbackground="#e67e22", width=30, height=15)
-        self.path_listbox.pack(fill=tk.BOTH, expand=True, pady=5)
+        # Rút gọn khoảng cách (padx, pady) giữa các ô cờ lại sát nhau hết mức
+        self.node_up, self.lbl_up = create_node_with_cost(0, 1, pady=0)
+        self.node_left, self.lbl_left = create_node_with_cost(1, 0, padx=15)
+        
+        # Ô Center thu hẹp khoảng cách từ 12 xuống chỉ còn 2
+        self.node_center, self.lbl_center = create_node_with_cost(1, 1, padx=4, pady=2, bd=3)
+        
+        self.node_right, self.lbl_right = create_node_with_cost(1, 2, padx=15)
+        self.node_down, self.lbl_down = create_node_with_cost(2, 1, pady=0)
+
+        # KHU VỰC LISTBOX
+        self.path_container = tk.Frame(self.workspace_frame, bg=BG_MAIN, width=380)
+        self.path_container.pack(side=tk.RIGHT, fill=tk.Y)
+        self.path_container.pack_propagate(False)
+
+        tk.Label(self.path_container, text="Current Path", fg=ACCENT_BLUE, bg=BG_MAIN, font=('Fixedsys', 12, 'bold')).pack(anchor=tk.W)
+        self.current_path_listbox = tk.Listbox(self.path_container, font=('Fixedsys', 11), bg=BG_PANEL, fg=TEXT_MAIN, relief=tk.FLAT, height=15, highlightthickness=0)
+        self.current_path_listbox.pack(fill=tk.X, pady=(0, 15))
+
+        tk.Label(self.path_container, text="Final Solution", fg=ACCENT_GREEN, bg=BG_MAIN, font=('Fixedsys', 12, 'bold')).pack(anchor=tk.W)
+        self.path_listbox = tk.Listbox(self.path_container, font=('Fixedsys', 11), bg=BG_PANEL, fg=TEXT_MAIN, relief=tk.FLAT, highlightthickness=0)
+        self.path_listbox.pack(fill=tk.BOTH, expand=True)
         self.path_listbox.bind('<<ListboxSelect>>', self.on_path_select)
 
-        self.body_frame.columnconfigure(0, weight=1)
-        self.body_frame.columnconfigure(1, weight=1)
+        # Bottom Thanh Thống kê thông số
+        self.lbl_stats = tk.Label(self.right_container, text="Ready", fg=HIGHLIGHT_GOLD, bg=BG_MAIN, font=('Fixedsys', 13, 'bold'), pady=8)
+        self.lbl_stats.pack(fill=tk.X)
 
-        # --- CONTROL FRAME ---
-        self.control_frame = tk.Frame(self.root, bg="#2c3e50", pady=10)
-        self.control_frame.pack(fill=tk.X)
+    # Hàm dọn dẹp tất cả các ô xung quanh và xóa nhãn Cost
+    def clear_neighbors(self):
+        for widget in [self.node_up, self.node_down, self.node_left, self.node_right]:
+            widget.update_board(None)
+            widget.config(bg=BG_PANEL)
+        for lbl in [self.lbl_up, self.lbl_down, self.lbl_left, self.lbl_right]:
+            lbl.config(text="")
 
-        self.button_container = tk.Frame(self.control_frame, bg="#2c3e50")
-        self.button_container.pack(anchor=tk.CENTER)
+    def apply_custom_input(self):
+        raw_initial = self.ent_input.get().strip()
+        raw_goal = self.ent_goal.get().strip() 
+        try:
+            parts_initial = [int(x) for x in raw_initial.split() if x.strip() != ""]
+            parts_goal = [int(x) for x in raw_goal.split() if x.strip() != ""]
+            
+            if len(parts_initial) != 9 or len(parts_goal) != 9:
+                raise ValueError("Bắt buộc phải nhập đúng 9 số cho mỗi ô cờ!")
+            if set(parts_initial) != set(range(9)) or set(parts_goal) != set(range(9)):
+                raise ValueError("Bảng cờ phải chứa các số từ 0 đến 8 không trùng lặp!")
+            
+            self.initial_board = tuple(parts_initial)
+            self.goal_board = tuple(parts_goal)
+            self.reset_environment()
+            messagebox.showinfo("Thành công", f"Đã áp dụng thông số mới!\nStart: {self.initial_board}\nGoal: {self.goal_board}")
+        except Exception as e:
+            messagebox.showerror("Lỗi dữ liệu", f"Chuỗi nhập không hợp lệ: {str(e)}\n\nĐịnh dạng đúng ví dụ: 1 2 3 4 0 6 7 5 8")
 
-        self.btn_next = tk.Button(self.button_container, text="Next Step", command=self.next_step, 
-                                  font=('Arial', 12, 'bold'), bg="#e67e22", fg="white", width=12)
-        self.btn_next.grid(row=0, column=0, padx=10)
+    def get_current_algo_name(self):
+        tab_idx = self.notebook.index(self.notebook.select())
+        if tab_idx == 0: return self.cb_uninformed.get()
+        if tab_idx == 1: return self.cb_informed.get()
+        return self.cb_local.get()
 
-        self.btn_prev = tk.Button(self.button_container, text="Previous Step", command=self.previous_step, 
-                                  font=('Arial', 12, 'bold'), bg="#7f8c8d", fg="white", width=12, state=tk.DISABLED)
-        self.btn_prev.grid(row=0, column=1, padx=10)
-
-        self.btn_auto = tk.Button(self.button_container, text="Auto Play", command=self.toggle_auto_play, 
-                                  font=('Arial', 12, 'bold'), bg="#2980b9", fg="white", width=12)
-        self.btn_auto.grid(row=0, column=2, padx=10)
-
-        self.lbl_stats = tk.Label(self.button_container, text="Ready", fg="#bdc3c7", bg="#2c3e50", font=('Arial', 12))
-        self.lbl_stats.grid(row=0, column=3, padx=15)
+    def on_tab_changed(self, event):
+        self.reset_environment()
 
     def reset_environment(self):
-        """Khởi tạo lại trạng thái hệ thống dựa trên thuật toán được chọn"""
-        # Tắt Auto Play nếu đang chạy
         self.is_auto_playing = False
-        self.btn_auto.config(text="Auto Play", bg="#2980b9", state=tk.NORMAL)
+        self.btn_auto.config(text="Auto Play ⏵", bg=ACCENT_ORANGE, state=tk.NORMAL)
         self.btn_next.config(state=tk.NORMAL)
         
-        # Xóa sạch dữ liệu cũ
         self.step_count = 0
         self.solution_path = []
         self.current_state_data = None
         self.path_listbox.delete(0, tk.END)
-        for widget in [self.node_up, self.node_down, self.node_left, self.node_right]:
-            widget.update_board(None)
-            widget.config(bg="#2c3e50")
+        self.current_path_listbox.delete(0, tk.END)
+        self.clear_neighbors()
         for bw in self.frontier_boards:
             bw.update_board(None)
 
-        # Khởi tạo Solver mới dựa trên lựa chọn của Combobox
-        selected_algo_name = self.combo_algo.get()
-        SolverClass = self.algorithms[selected_algo_name]
-        self.solver = SolverClass(self.initial_board)
+        selected_algo_name = self.get_current_algo_name()
+        
+        all_solvers = {}
+        for k, v in self.algorithms.items():
+            all_solvers[k] = v
+        SolverClass = all_solvers[selected_algo_name]
+        self.solver = SolverClass(self.initial_board, goal_board=self.goal_board)
 
-        # Hiển thị Node ban đầu
+        self.txt_docs.delete("1.0", tk.END)
+        if "Hill Climbing" in selected_algo_name:
+            self.lbl_frontier_title.config(text="Neighbors:")
+            doc_key = "Simple HC" if "Simple" in selected_algo_name else "Steepest HC"
+            self.txt_docs.insert("1.0", self.algo_docs[doc_key])
+        else:
+            if "DFS" in selected_algo_name or "IDS" in selected_algo_name:
+                self.lbl_frontier_title.config(text="Frontier (Stack):")
+            elif "BFS" in selected_algo_name:
+                self.lbl_frontier_title.config(text="Frontier (Queue):")
+            else:
+                self.lbl_frontier_title.config(text="Frontier (Priority Queue):")
+
+            # Chèn nội dung mã giả
+            if "BFS" in selected_algo_name: self.txt_docs.insert("1.0", self.algo_docs["BFS"])
+            elif "DFS" in selected_algo_name: self.txt_docs.insert("1.0", self.algo_docs["DFS"])
+            elif "IDS" in selected_algo_name: self.txt_docs.insert("1.0", self.algo_docs["IDS"])
+            elif "UCS" in selected_algo_name: self.txt_docs.insert("1.0", self.algo_docs["UCS"])
+            elif "Greedy" in selected_algo_name: self.txt_docs.insert("1.0", self.algo_docs["Greedy"])
+            elif "IDA*" in selected_algo_name: self.txt_docs.insert("1.0", self.algo_docs["IDA*"])
+            elif "A*" in selected_algo_name: self.txt_docs.insert("1.0", self.algo_docs["A*"])
+
         self.node_center.update_board(self.solver.initial_node.board, highlight=True)
         self.node_center.config(bg="#a55b00")
         self.frontier_boards[0].update_board(self.solver.initial_node.board)
         
-        # Cập nhật Label ban đầu tùy vào loại thuật toán
-        if "IDS" in selected_algo_name:
-            self.lbl_stats.config(text="Limit (l): 0 | Step: 0 | Frontier: 1", fg="#bdc3c7")
+        if "IDS" in selected_algo_name or "IDA*" in selected_algo_name:
+            self.lbl_stats.config(text="Limit: 0 | Steps: 0 | Frontier: 1", fg=TEXT_MUTED)
+        elif "Hill Climbing" in selected_algo_name:
+            self.lbl_stats.config(text="Steps: 0 | Neighbors: 1", fg=TEXT_MUTED)
         else:
-            self.lbl_stats.config(text="Step: 0 | Reached: 1 | Frontier: 1", fg="#bdc3c7")
+            self.lbl_stats.config(text="Steps: 0 | Reached: 1 | Frontier: 1", fg=TEXT_MUTED)
         
         self.ui_history = [] 
         self.btn_prev.config(state=tk.DISABLED)
 
     def next_step(self):
-        # Trước khi chạy bước mới, lưu lại nguyên văn bộ nhớ hiện tại của Solver và thông số bước
-        # Sử dụng copy.deepcopy để nhân bản độc lập, tránh bị ghi đè dữ liệu
         solver_snapshot = copy.deepcopy(self.solver)
         self.ui_history.append((self.step_count, solver_snapshot, self.current_state_data))
-        self.btn_prev.config(state=tk.NORMAL) # Kích hoạt nút quay lại
+        self.btn_prev.config(state=tk.NORMAL) 
 
         self.step_count += 1
         state_data = self.solver.step()
         
         self.current_state_data = state_data 
         self.update_ui_from_state(state_data)
+        self.track_current_path(state_data)
 
     def previous_step(self):
-        """Hàm xử lý quay ngược lại bước trước đó của thuật toán"""
         if not self.ui_history:
             return
-
-        # Pop lấy dữ liệu mới nhất từ Stack lịch sử ra (LIFO)
         prev_step_count, prev_solver_state, prev_state_data = self.ui_history.pop()
-        
-        # Đè bộ nhớ cũ vào lại hệ thống
         self.step_count = prev_step_count
-        self.solver = prev_solver_state  # Trả bộ giải về đúng quá khứ của nó
+        self.solver = prev_solver_state 
         self.current_state_data = prev_state_data
         
-        # Khôi phục giao diện vẽ trên màn hình
         if prev_state_data is None:
-            # Nếu lùi về tận bước xuất phát ban đầu (khi chưa có data expand nào)
             self.reset_environment()
             return
         else:
             self.update_ui_from_state(prev_state_data)
+            self.track_current_path(prev_state_data)
         
-        # Nếu đã lùi về hết cỡ thì khóa nút bấm lại
         if not self.ui_history:
             self.btn_prev.config(state=tk.DISABLED)
             
-        # Mở khóa lại các nút bấm đề phòng trường hợp trước đó đã kết thúc thành công/thất bại
         self.btn_next.config(state=tk.NORMAL)
         self.btn_auto.config(state=tk.NORMAL)
 
-    def colorize_node(self, widget, move_name, children_info):
+    def track_current_path(self, data):
+        self.current_path_listbox.delete(0, tk.END)
+        if data is None or "current" not in data or data.get("status") in ["success", "failure"]:
+            return
+        
+        temp_path = []
+        curr = data["current"]
+        while curr:
+            temp_path.append(curr)
+            curr = curr.parent
+        temp_path.reverse()
+        
+        for idx, node in enumerate(temp_path):
+            m_val = getattr(node, 'move', None)
+            m_str = f"Step {idx:02d}: " + (str(m_val) if m_val else "START")
+            self.current_path_listbox.insert(tk.END, m_str)
+        self.current_path_listbox.see(tk.END) 
+
+    def colorize_node(self, widget, lbl_widget, move_name, children_info, current_algo):
         if move_name not in children_info:
             widget.update_board(None) 
-            widget.config(bg="#2c3e50") 
+            widget.config(bg=BG_PANEL) 
+            lbl_widget.config(text="")
             return
             
         info = children_info[move_name]
-        board_data = info["node"].board
+        node_obj = info["node"]
+        board_data = node_obj.board
         widget.update_board(board_data)
         
+        # BÓC TÁCH CHI PHÍ THÔNG MINH
+        cost_str = ""
+        if "A*" in current_algo or "IDA*" in current_algo:
+            if hasattr(node_obj, 'g') and hasattr(node_obj, 'h') and hasattr(node_obj, 'f'):
+                # Xử lý Dummy Node của A* (tránh in ra số 0)
+                if node_obj.g == 0 and node_obj.h == 0 and info["type"] == "reached":
+                    cost_str = "(Đã xét)"
+                else:
+                    cost_str = f"g:{node_obj.g} h:{node_obj.h} f:{node_obj.f}"
+        elif "Hill Climbing" in current_algo:
+            if hasattr(node_obj, 'h'):
+                cost_str = f"h(n): {node_obj.h}"
+        elif "Greedy" in current_algo or "UCS" in current_algo:
+            if hasattr(self.solver, 'node_costs') and board_data in self.solver.node_costs:
+                val = self.solver.node_costs[board_data]
+                prefix = "h:" if "Greedy" in current_algo else "Cost:"
+                cost_str = f"{prefix} {val}"
+                
+        lbl_widget.config(text=cost_str) # In thông số ra cái Label bên dưới
+
+        # Đổ màu trạng thái
         if info["type"] == "new":
-            widget.config(bg="#2ecc71")      
+            widget.config(bg=ACCENT_GREEN)      
         elif info["type"] == "reached":
-            widget.config(bg="#e74c3c")      
+            widget.config(bg=ACCENT_RED)      
         elif info["type"] == "success":
-            widget.config(bg="#f1c40f")
+            widget.config(bg=HIGHLIGHT_GOLD)
 
     def update_ui_from_state(self, data):
         if data is None:
             return
-        
-        current_algo = self.combo_algo.get()
-        is_heuristic_only = "Hill Climbing" in current_algo or "Greedy" in current_algo
 
+        if data["status"] == "failure":
+            self.lbl_stats.config(text="ALGORITHM STOPPED: NO PATH FOUND / STUCK IN LOCAL MAXIMUM!!!", fg=ACCENT_RED)
+            self.btn_next.config(state=tk.DISABLED)
+            self.btn_auto.config(state=tk.DISABLED)
+            
+            if "current" in data:
+                self.node_center.update_board(data["current"].board, highlight=True)
+                self.node_center.config(bg=ACCENT_RED)
+                self.clear_neighbors()
+            return
+            
+        current_algo = self.get_current_algo_name()
+        is_heuristic_only = "Hill Climbing" in current_algo or "Greedy" in current_algo
+            
         current_board = data["current"].board
         self.node_center.update_board(current_board, highlight=True)
         self.node_center.config(bg="#a55b00")
 
         if data["status"] == "next_depth":
-            for widget in [self.node_up, self.node_down, self.node_left, self.node_right]:
-                widget.update_board(None)
-                widget.config(bg="#2c3e50")
-            self.lbl_stats.config(text=f"TĂNG GIỚI HẠN LÊN l = {data['current_l']}!", fg="#f1c40f")
+            self.clear_neighbors()
+            self.lbl_stats.config(text=f"INCREASE THE LIMIT TO l = {data['current_l']}!", fg=HIGHLIGHT_GOLD)
             return
 
         if "children_info" in data:
             info = data["children_info"]
-            self.colorize_node(self.node_up, 'UP', info)
-            self.colorize_node(self.node_down, 'DOWN', info)
-            self.colorize_node(self.node_left, 'LEFT', info)
-            self.colorize_node(self.node_right, 'RIGHT', info)
+            self.colorize_node(self.node_up, self.lbl_up, 'UP', info, current_algo)
+            self.colorize_node(self.node_down, self.lbl_down, 'DOWN', info, current_algo)
+            self.colorize_node(self.node_left, self.lbl_left, 'LEFT', info, current_algo)
+            self.colorize_node(self.node_right, self.lbl_right, 'RIGHT', info, current_algo)
 
         if data["status"] == "success":
             self.is_auto_playing = False
             self.btn_next.config(state=tk.DISABLED)
-            self.btn_auto.config(state=tk.DISABLED, text="Auto Play", bg="#2980b9")
-            self.lbl_stats.config(text="ĐÃ TÌM THẤY ĐÍCH!!!", fg="#2ecc71")
+            self.btn_auto.config(state=tk.DISABLED, text="Auto Play ⏵", bg=ACCENT_ORANGE)
+            self.lbl_stats.config(text="THE GOAL HAS BEEN FOUND!!!", fg=ACCENT_GREEN)
             
             current_board = data["solution_node"].board
             self.node_center.update_board(current_board, highlight=True)
-            self.node_center.config(bg="#f1c40f")
+            self.node_center.config(bg=HIGHLIGHT_GOLD)
             
-            for widget in [self.node_up, self.node_down, self.node_left, self.node_right]:
-                widget.update_board(None)
-                widget.config(bg="#2c3e50")
+            self.clear_neighbors()
             
             self.solution_path = data["path"]
             self.path_listbox.delete(0, tk.END)
             for idx, node in enumerate(self.solution_path):
                 move_val = getattr(node, 'move')
-                move_str = f"Step {idx}: " + (str(move_val) if move_val else "START")
+                move_str = f"Step {idx:02d}: " + (str(move_val) if move_val else "START")
 
                 if hasattr(node, 'f') and hasattr(node, 'h'): 
                     if is_heuristic_only:
-                        # Dành cho Hill Climbing / Greedy
                         move_str += f" (h = {node.h})"
                     else:
-                        # Dành cho A*, IDA*
                         move_str += f" (f = {node.f})"
                 elif hasattr(self.solver, 'node_costs'):
                     cost_val = self.solver.node_costs.get(node.board, 0)
@@ -278,65 +486,57 @@ class MainWindow:
                 self.path_listbox.insert(tk.END, move_str)
             return
 
-        if data["status"] == "failure":
-            self.lbl_stats.config(text="KHÔNG TÌM THẤY ĐƯỜNG ĐI!!!", fg="#e74c3c")
-            self.btn_next.config(state=tk.DISABLED)
-            self.btn_auto.config(state=tk.DISABLED)
-            return
-
         frontier_list = data["frontier_preview"]
-        for i in range(5):
+        for i in range(10):
             if i < len(frontier_list):
                 self.frontier_boards[i].update_board(frontier_list[i])
             else:
                 self.frontier_boards[i].update_board(None)
 
-        # Định dạng thống kê hiển thị khác nhau tùy vào thuật toán (Có l hay không có l)
+        stats_text = ""
         if "current_l" in data:
-            # IDS và IDA*
+            # IDS
             reached_val = data.get('reached_count', 0)
-            self.lbl_stats.config(text=f"Limit: {data['current_l']} | Step: {self.step_count} | Reached: {reached_val} | Frontier: {data['frontier_count']}", fg="#bdc3c7")
-        
+            stats_text = f"Limit: {data['current_l']} | Step: {self.step_count} | Reached: {reached_val} | Frontier: {data['frontier_count']}"
+        elif "Hill Climbing" in current_algo:
+            # HILL CLIMBING
+            h_val = data['current'].h if hasattr(data['current'], 'h') else "N/A"
+            stats_text = f"Step: {self.step_count} | Neighbors: {data['frontier_count']} | h(n) = {h_val}"
         elif hasattr(data["current"], 'f') and hasattr(data["current"], 'h'): 
-            if is_heuristic_only:
-                # Nếu là Hill Climbing/Greedy, in chữ h(n)
-                current_val = data["current"].h
-                self.lbl_stats.config(text=f"Step: {self.step_count} | Reached: {data['reached_count']} | Frontier: {data['frontier_count']} | h(n) = {current_val}", fg="#bdc3c7")
+            if "Greedy" in current_algo:
+                # GREEDY
+                stats_text = f"Step: {self.step_count} | Reached: {data.get('reached_count',0)} | Frontier: {data['frontier_count']} | h(n) = {data['current'].h}"
             else:
-                # Nếu là A*, in chữ f(n)
-                current_val = data["current"].f
-                self.lbl_stats.config(text=f"Step: {self.step_count} | Reached: {data['reached_count']} | Frontier: {data['frontier_count']} | f(n) = {current_val}", fg="#bdc3c7")
-        
+                # A* và IDA*
+                stats_text = f"Step: {self.step_count} | Reached: {data.get('reached_count',0)} | Frontier: {data['frontier_count']} | f(n) = {data['current'].f}"
         elif hasattr(self.solver, 'node_costs'):
             # UCS
             current_cost = self.solver.node_costs.get(current_board, 0)
-            self.lbl_stats.config(text=f"Step: {self.step_count} | Reached: {data['reached_count']} | Frontier: {data['frontier_count']} | Current Cost: {current_cost}", fg="#bdc3c7")
-        
+            stats_text = f"Step: {self.step_count} | Reached: {data.get('reached_count',0)} | Frontier: {data['frontier_count']} | Cost: {current_cost}"
         else:
-            # BFS, DFS
-            self.lbl_stats.config(text=f"Step: {self.step_count} | Reached: {data['reached_count']} | Frontier: {data['frontier_count']}", fg="#bdc3c7")
-
+            # Các thuật toán Uninformed còn lại
+            stats_text = f"Step: {self.step_count} | Reached: {data.get('reached_count',0)} | Frontier: {data['frontier_count']}"
+            
+        self.lbl_stats.config(text=stats_text, fg=TEXT_MUTED)
     def on_path_select(self, event):
         selection = self.path_listbox.curselection()
         if selection:
             index = selection[0]
             selected_node = self.solution_path[index]
             self.node_center.update_board(selected_node.board, highlight=True)
-            self.node_center.config(bg="#f1c40f") 
+            self.node_center.config(bg=HIGHLIGHT_GOLD) 
             
-            for widget in [self.node_up, self.node_down, self.node_left, self.node_right]:
-                widget.update_board(None)
-                widget.config(bg="#2c3e50")
+            self.clear_neighbors()
 
     def toggle_auto_play(self):
         if not self.is_auto_playing:
             self.is_auto_playing = True
-            self.btn_auto.config(text="Stop Auto", bg="#c0392b") 
+            self.btn_auto.config(text="Stop ⏸", bg=ACCENT_RED) 
             self.btn_next.config(state=tk.DISABLED) 
             self.run_auto_step()
         else:
             self.is_auto_playing = False
-            self.btn_auto.config(text="Auto Play", bg="#2980b9") 
+            self.btn_auto.config(text="Auto Play ⏵", bg=ACCENT_ORANGE) 
             self.btn_next.config(state=tk.NORMAL) 
 
     def run_auto_step(self):
@@ -344,14 +544,15 @@ class MainWindow:
             self.step_count += 1
             state_data = self.solver.step()
             self.update_ui_from_state(state_data)
+            self.track_current_path(state_data)
             
             if state_data and state_data["status"] not in ["success", "failure"]:
-                self.root.after(500, self.run_auto_step)
+                speed = self.slider_speed.get()
+                self.root.after(speed, self.run_auto_step) 
             else:
                 self.toggle_auto_play()
     
 if __name__ == "__main__":
     root = tk.Tk()
-    root.geometry("780x560") 
     app = MainWindow(root)
     root.mainloop()

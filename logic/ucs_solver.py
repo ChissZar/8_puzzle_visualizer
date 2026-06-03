@@ -2,8 +2,9 @@ import heapq
 from logic.puzzle_state import PuzzleState
 
 class UCSSolver:
-    def __init__(self, initial_board):
-        self.initial_node = PuzzleState(initial_board)
+    def __init__(self, initial_board, goal_board=(1, 2, 3, 4, 5, 6, 7, 8, 0)):
+        self.goal_board = tuple(goal_board)
+        self.initial_node = PuzzleState(initial_board, goal_board=self.goal_board)
         
         # Priority Queue
         self.frontier = []
@@ -11,12 +12,9 @@ class UCSSolver:
         
         # Hàm tính số ô sai vị trí so với đích
         def get_misplaced_count(board_tuple):
-            goal = (1, 2, 3, 
-                    4, 5, 6, 
-                    7, 8, 0)
             count = 0
             for i in range(9):
-                if board_tuple[i] != 0 and board_tuple[i] != goal[i]:
+                if board_tuple[i] != 0 and board_tuple[i] != self.goal_board[i]:
                     count += 1
             return count
 
@@ -68,12 +66,9 @@ class UCSSolver:
 
         # Hàm tính số ô sai của node con
         def get_misplaced_count(board_tuple):
-            goal = (1, 2, 3, 
-                    4, 5, 6, 
-                    7, 8, 0)
             count = 0
             for i in range(9):
-                if board_tuple[i] != 0 and board_tuple[i] != goal[i]:
+                if board_tuple[i] != 0 and board_tuple[i] != self.goal_board[i]:
                     count += 1
             return count
 
@@ -95,9 +90,9 @@ class UCSSolver:
             else:
                 children_info[move] = {"node": child_node, "type": "reached"}
 
-        # Sắp xếp hiển thị 5 Node có tổng chi phí thấp nhất lên thanh Frontier trên UI
+        # Sắp xếp hiển thị 10 Node có tổng chi phí thấp nhất lên thanh Frontier trên UI
         sorted_frontier = sorted(self.frontier, key=lambda x: x[0])
-        frontier_preview_list = [item[2].board for item in sorted_frontier][:5]
+        frontier_preview_list = [item[2].board for item in sorted_frontier][:10]
 
         return {
             "status": "expanding",

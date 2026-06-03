@@ -1,8 +1,9 @@
 from logic.puzzle_state import PuzzleState
 
 class IDSSolver:
-    def __init__(self, initial_board):
-        self.initial_node = PuzzleState(initial_board)
+    def __init__(self, initial_board, goal_board=(1, 2, 3, 4, 5, 6, 7, 8, 0)):
+
+        self.initial_node = PuzzleState(initial_board, goal_board=goal_board)
         self.is_solved = False
         self.failure = False
         
@@ -91,8 +92,8 @@ class IDSSolver:
                     self.frontier.append(child_node)
                     children_info[move] = {"node": child_node, "type": "new"}
 
-        # Chuẩn bị dữ liệu hiển thị lấy 5 node trên đỉnh Stack (mới nhất)
-        frontier_preview_list = [node.board for node in self.frontier][-5:][::-1]
+        # Chuẩn bị dữ liệu hiển thị lấy 10 node trên đỉnh Stack (mới nhất)
+        frontier_preview_list = [node.board for node in self.frontier][-10:][::-1]
 
         return {
             "status": "expanding",
