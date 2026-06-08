@@ -16,14 +16,14 @@ Dự án trực quan hóa các thuật toán tìm kiếm để giải bài toán
 Dự án được thiết kế theo mô hình tách biệt rõ ràng giữa Logic toán học (Thuật toán) và Giao diện người dùng (UI):
 
 ```text
-8_puzzle_bfs_visualizer/
+8_puzzle_visualizer/
 │
 ├── main.py                # Điểm bắt đầu (Entry point) để kích hoạt ứng dụng
 │
-├── logic/                 # Thư mục chứa thuần logic thuật toán
-│   ├── __init__.py
-│   ├── puzzle_state.py    # Định nghĩa cấu trúc Node, các bước di chuyển hợp lệ, hàm Heuristic
-│   └── ..._solver.py      # Trái tim của các thuật toán tìm kiếm (Unifromed Search, Infromed Search, Local Search,...)
+├── logic/                 # Thư mục chứa thuần logic thuật toán 
+│   ├── uninformed_search/ # Nhóm thuật toán mù (BFS, DFS, IDS, UCS)
+│   ├── informed_search/   # Nhóm thuật toán kinh nghiệm (Greedy, A*, IDA*)
+│   └── local_search/      # Nhóm tìm kiếm cục bộ (Hill Climbing, Beam Search, Simulated Annealing)
 │
 └── ui/                    # Thư mục quản lý toàn bộ giao diện Tkinter
     ├── __init__.py
@@ -53,7 +53,7 @@ Dự án được thiết kế theo mô hình tách biệt rõ ràng giữa Logi
 ```
 
 ## Hướng dẫn Tùy chỉnh
-Bạn **không cần phải can thiệp vào mã nguồn** để thay đổi bài toán. Mọi thao tác cấu hình đều có thể thực hiện trực tiếp trên giao diện trực quan:
+Mọi thao tác cấu hình bài toán đều có thể thực hiện trực tiếp trên giao diện trực quan:
 
 1. **Thay đổi Trạng thái Ban đầu (Initial Board) và Đích (Goal Board):**
    - Nhìn sang thanh Sidebar bên trái màn hình.
@@ -61,7 +61,7 @@ Bạn **không cần phải can thiệp vào mã nguồn** để thay đổi bà
    - *Ví dụ:* `1 2 3 4 0 6 7 5 8`
 2. **Áp dụng cấu hình:**
    - Bấm nút **"Apply Custom & Reset"** (Màu Đỏ). 
-   - Hệ thống sẽ tự động cập nhật lại toàn bộ lõi thuật toán và giao diện với bài toán mới ngay lập tức.
+   - Hệ thống sẽ tự động khởi tạo lại toàn bộ lõi thuật toán và vẽ lại giao diện ngay lập tức.
 
 ---
 
@@ -70,14 +70,14 @@ Bạn **không cần phải can thiệp vào mã nguồn** để thay đổi bà
 - **Hệ thống Thuật toán:** Ứng dụng hỗ trợ phân tích 3 chương kiến thức cốt lõi của AI (sẽ còn được cập nhật thêm), dễ dàng chuyển đổi qua Tab và Combobox:
   - *Chapter 1 (Uninformed Search):* BFS, DFS, IDS, UCS.
   - *Chapter 2 (Informed Search):* Greedy, A*, IDA*.
-  - *Chapter 3 (Local Search):* Simple Hill Climbing, Steepest-Ascent Hill Climbing.
+  - *Chapter 3 (Local Search):* Simple Hill Climbing, Steepest-Ascent Hill Climbing, Stochastic Hill Climbing, Random Restart Hill Climbing, Local Beam Search, Simulated Annealing.
 
 - **Khu vực Expansion & Bóc tách Chi phí thông minh:** Trực quan hóa hàm EXPAND với 4 hướng trượt.
   - Tự động hiển thị các chỉ số toán học ($g$, $h$, $f$, Cost) ngay bên dưới các trạng thái lân cận tùy theo thuật toán đang chạy (Ví dụ: A* sẽ hiện $f(n) = g(n) + h(n)$, Hill Climbing chỉ hiện $h(n)$).
   - Đổ màu sắc thái chuẩn học thuật: 
     - **Ô viền xanh lá:** Trạng thái mới, hợp lệ.
     - **Ô viền đỏ:** Trạng thái đã tồn tại (Reached/Cutoff), hoặc có Heuristic tệ hơn hiện tại, bị loại bỏ.
-    - **Ô viền vàng:** Trạng thái đích (Goal).
+    - **Ô viền vàng:** Trạng thái đích (Goal), *Đặc biệt trong Simulated Annealing:* Biểu thị việc thuật toán chấp nhận đi vào một đường xấu ($h$ tăng) nhờ xác suất $P$ để thoát cực đại cục bộ..
 
 - **Frontier View Linh hoạt:** Khay chứa tự động đổi tên và cấu trúc mô phỏng đúng lý thuyết: **Queue** (BFS), **Stack** (DFS, IDS), **Priority Queue** (UCS, Greedy, A*), và **Neighbors** (dành riêng cho thuật toán không lưu vết như Hill Climbing).
 

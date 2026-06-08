@@ -1,19 +1,26 @@
 import copy
 import tkinter as tk
 from tkinter import ttk, messagebox
-from logic.bfs_solver import BFSSolver
-from logic.dfs_solver import DFSSolver
-from logic.ids_solver import IDSSolver
-from logic.ucs_solver import UCSSolver
-from logic.greedy_solver import GreedySolver
-from logic.astar_solver import AStarSolver
-from logic.ida_star_solver import IDAStarSolver
-from logic.simple_hill_climbing_solver import SimpleHillClimbingSolver
-from logic.steepest_ascent_hill_climbing_solver import SteepestAscentHillClimbingSolver
-from logic.stochastic_hill_climbing_solver import StochasticHillClimbingSolver
-from logic.random_restart_hill_climbing_solver import RandomRestartHillClimbingSolver
-from logic.local_beam_search_solver import LocalBeamSearchSolver
 from ui.board_widget import BoardWidget
+
+# --- CHƯƠNG 1: UNINFORMED SEARCH ---
+from logic.uninformed_search.bfs_solver import BFSSolver
+from logic.uninformed_search.dfs_solver import DFSSolver
+from logic.uninformed_search.ids_solver import IDSSolver
+from logic.uninformed_search.ucs_solver import UCSSolver
+
+# --- CHƯƠNG 2: INFORMED SEARCH ---
+from logic.informed_search.greedy_solver import GreedySolver
+from logic.informed_search.astar_solver import AStarSolver
+from logic.informed_search.ida_star_solver import IDAStarSolver
+
+# --- CHƯƠNG 3: LOCAL SEARCH ---
+from logic.local_search.simple_hill_climbing_solver import SimpleHillClimbingSolver
+from logic.local_search.steepest_ascent_hill_climbing_solver import SteepestAscentHillClimbingSolver
+from logic.local_search.stochastic_hill_climbing_solver import StochasticHillClimbingSolver
+from logic.local_search.random_restart_hill_climbing_solver import RandomRestartHillClimbingSolver
+from logic.local_search.local_beam_search_solver import LocalBeamSearchSolver
+from logic.local_search.simulated_annealing_solver import SimulatedAnnealingSolver
 
 BG_MAIN = "#0f172a"      
 BG_PANEL = "#1e293b"     
@@ -50,7 +57,8 @@ class MainWindow:
             "Steepest-Ascent Hill Climbing (Manhattan)": SteepestAscentHillClimbingSolver,
             "Stochastic Hill Climbing (Manhattan)": StochasticHillClimbingSolver,
             "Random Restart Hill Climbing (Manhattan)": RandomRestartHillClimbingSolver,
-            "Local Beam Search (k=2)": LocalBeamSearchSolver
+            "Local Beam Search (k=2)": LocalBeamSearchSolver,
+            "Simulated Annealing (Manhattan)": SimulatedAnnealingSolver
         }
 
         self.algo_docs = {
@@ -65,8 +73,8 @@ class MainWindow:
             "Steepest HC": "== STEEPEST-ASCENT HILL CLIMBING ==\n- Loại: Local Search (Leo đồi dốc nhất)\n- Cơ chế: Sinh TOÀN BỘ lân cận, cân đo đong đếm tìm ra hướng TỐT NHẤT rồi mới đi.\n- Đặc điểm: Bài bản, chậm mà chắc.",
             "Stochastic HC": "== STOCHASTIC HILL CLIMBING ==\n- Loại: Local Search (Ngẫu nhiên)\n- Đặc điểm: Lọc ra danh sách 'Better Neighbors', sau đó bốc NGẪU NHIÊN 1 trạng thái để đi tiếp. Giúp tránh kẹt lối mòn.",
             "Restart HC": "== RANDOM RESTART HILL CLIMBING ==\n- Cơ chế: Nếu kẹt cực đại cục bộ, thuật toán sẽ quay về ĐÚNG VẠCH XUẤT PHÁT (Start) để leo đồi lại. Dựa vào việc chọn ngẫu nhiên các lân cận (Stochastic), kỳ vọng lần chạy sau sẽ rẽ sang nhánh khác để thoát kẹt.\n- Phân tích: Áp dụng vào 8-Puzzle thường kém hiệu quả vì tập 'Better Neighbors' quá ít, thuật toán dễ đi lại vào vết xe đổ cũ.",
-            "Beam Search": "== LOCAL BEAM SEARCH (k) ==\n- Cơ chế: Khởi tạo k trạng thái (chùm). Ở mỗi bước, sinh TẤT CẢ lân cận của k trạng thái này. Sau đó gom lại, sắp xếp và chỉ chọn ra đúng k trạng thái tốt nhất để đi tiếp.\n- Ưu điểm: Khắc phục nhược điểm 'đơn độc' của Hill Climbing, tránh kẹt cục bộ tốt hơn nhờ có nhiều 'nhánh' song song."
-        }
+            "Beam Search": "== LOCAL BEAM SEARCH (k) ==\n- Cơ chế: Sinh TẤT CẢ lân cận từ k trạng thái hiện tại (chùm). Sau đó gom lại, sắp xếp và chỉ chọn ra đúng k lân cận tốt nhất để đi tiếp thế hệ sau.\n- Chú thích Giao diện ở Current State Set -> Neighbors:\n  + Bên trái ô trống: Tập k trạng thái của chùm hiện tại (Current State Set).\n  + Bên phải ô trống: Hồ bơi chứa các lân cận (Neighbors) vừa được sinh ra để chờ xét duyệt.\n- Ưu điểm: Tránh kẹt cục bộ tốt hơn Hill Climbing nhờ đi song song nhiều nhánh.",
+            "Simulated Annealing": "== SIMULATED ANNEALING ==\n- Cảm hứng: Quá trình tôi luyện kim loại.\n- Cơ chế: Chọn ngẫu nhiên 1 lân cận.\n  + Δ < 0 (TỐT HƠN): Chấp nhận luôn (Ô XANH LÁ).\n  + Δ >= 0 (TỆ HƠN): Không bỏ qua ngay, mà chấp nhận với xác suất P = exp(-Δ/T) (Ô VÀNG GOLD), hoặc Từ chối (Ô ĐỎ).\n- Ý nghĩa: Nhiệt độ T càng cao (lúc mới chạy), thuật toán càng 'dễ dãi' đi vào đường xấu (Màu Vàng) để thoát khỏi cực đại cục bộ. T giảm dần, nó sẽ khắt khe hơn."        }
         
         self.solver = None 
         self.setup_ui()
@@ -176,7 +184,7 @@ class MainWindow:
         self.cb_informed.bind("<<ComboboxSelected>>", lambda e: self.reset_environment())
 
         self.cb_local = ttk.Combobox(self.tab_local, state="readonly", font=('Fixedsys', 12), width=50)
-        self.cb_local['values'] = ["Simple Hill Climbing (Manhattan)", "Steepest-Ascent Hill Climbing (Manhattan)", "Stochastic Hill Climbing (Manhattan)", "Random Restart Hill Climbing (Manhattan)", "Local Beam Search (k=2)"]
+        self.cb_local['values'] = ["Simple Hill Climbing (Manhattan)", "Steepest-Ascent Hill Climbing (Manhattan)", "Stochastic Hill Climbing (Manhattan)", "Random Restart Hill Climbing (Manhattan)", "Local Beam Search (k=2)", "Simulated Annealing (Manhattan)"]
         self.cb_local.current(0)
         self.cb_local.pack(anchor=tk.W, padx=15, pady=15)
         self.cb_local.bind("<<ComboboxSelected>>", lambda e: self.reset_environment())
@@ -305,6 +313,9 @@ class MainWindow:
         elif "Beam Search" in selected_algo_name:
             self.lbl_frontier_title.config(text="Current State Set -> Neighbors:")
             self.txt_docs.insert("1.0", self.algo_docs["Beam Search"])
+        elif "Annealing" in selected_algo_name:
+            self.lbl_frontier_title.config(text="Generated Neighbor:") 
+            self.txt_docs.insert("1.0", self.algo_docs["Simulated Annealing"])
         elif "Restart" in selected_algo_name:
             self.lbl_frontier_title.config(text="Better Neighbors:")
             self.txt_docs.insert("1.0", self.algo_docs["Restart HC"])
@@ -339,6 +350,8 @@ class MainWindow:
             self.lbl_stats.config(text="Steps: 0 | Better Neighbors: 1", fg=TEXT_MUTED)
         elif "Hill Climbing" in selected_algo_name or "Beam Search" in selected_algo_name:
             self.lbl_stats.config(text="Steps: 0 | Neighbors: 1", fg=TEXT_MUTED)
+        elif "Annealing" in selected_algo_name:
+            self.lbl_stats.config(text="Steps: 0 | Generated Neighbor: 1", fg=TEXT_MUTED)
         else:
             self.lbl_stats.config(text="Steps: 0 | Reached: 1 | Frontier: 1", fg=TEXT_MUTED)
         
@@ -515,8 +528,26 @@ class MainWindow:
             # IDS
             reached_val = data.get('reached_count', 0)
             stats_text = f"Limit: {data['current_l']} | Step: {self.step_count} | Reached: {reached_val} | Frontier: {data['frontier_count']}"
-        # Local Beam Search
+        elif "Annealing" in current_algo:
+            # Simulated Annealing
+            h_val = data['current'].h if hasattr(data['current'], 'h') else "N/A"
+            T_val = data.get('sa_T', 0)
+            delta = data.get('sa_delta', 0)
+            p_val = data.get('sa_p', 0)
+            acc = data.get('sa_accepted', False)
+            
+            status_str = "ACCEPTED" if acc else "REJECTED"
+            
+            # Nếu tốt hơn (Delta âm)
+            if delta < 0:
+                stats_text = f"Step: {self.step_count} | T: {T_val:.2f} | Δ = {delta} (<0) -> {status_str} | h(n) = {h_val}"
+            else:
+                # Nếu tệ hơn (Delta dương), hiện cả Xác suất P
+                stats_text = f"Step: {self.step_count} | T: {T_val:.2f} | Δ = {delta} | P = {p_val:.2f} -> {status_str} | h(n) = {h_val}"
+            self.lbl_stats.config(text=stats_text, fg=TEXT_MUTED)
+
         elif "Beam Search" in current_algo:
+            # Local Beam Search
             h_val = data['current'].h if hasattr(data['current'], 'h') else "N/A"
             k_val = data.get('beam_k', 2)
             stats_text = f"Step: {self.step_count} | Beam (k={k_val}) | Neighbors: {data['frontier_count']} | h(n) = {h_val}"
