@@ -37,7 +37,21 @@ class BoardWidget(tk.Frame):
         if not board_tuple:
             for i in range(3):
                 for j in range(3):
-                    self.labels[i][j].config(text="", bg="#7f8c8d") # Bảng bị vô hiệu hóa (Cụt đường)
+                    self.labels[i][j].config(text="", bg=self.colors["bg"])
+            return
+
+        if board_tuple == "SEPARATOR":
+            for i in range(3):
+                for j in range(3):
+                    # Hàng giữa (i=1), cột 0 và 1 -> Vẽ dấu gạch ngang
+                    if i == 1 and (j == 0 or j == 1):
+                        self.labels[i][j].config(text="—", bg=self.colors["bg"], fg="#4ade80")
+                    # Hàng giữa (i=1), cột 2 -> Vẽ mũi tên
+                    elif i == 1 and j == 2:
+                        self.labels[i][j].config(text="➡", bg=self.colors["bg"], fg="#4ade80", font=('Helvetica', 18, 'bold'))
+                    # Các ô còn lại để trống
+                    else:
+                        self.labels[i][j].config(text="", bg=self.colors["bg"])
             return
 
         for i in range(3):
@@ -47,4 +61,4 @@ class BoardWidget(tk.Frame):
                     self.labels[i][j].config(text="", bg=self.colors["empty"])
                 else:
                     bg_col = self.colors["highlight"] if highlight else self.colors["tile"]
-                    self.labels[i][j].config(text=str(val), bg=bg_col)
+                    self.labels[i][j].config(text=str(val), bg=bg_col, fg=self.colors["text"])

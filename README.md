@@ -1,85 +1,169 @@
 # 8-Puzzle Visualizer
 
-Dự án trực quan hóa các thuật toán tìm kiếm để giải bài toán 8-Puzzle (Còn nhiều thuật toán sẽ được thêm vào). Đây là phiên bản nâng cao được thiết kế chuyên biệt cho mục đích học thuật, hỗ trợ phân tích chi tiết quá trình ra quyết định của thuật toán. Đây là các bài tập hàng tuần cho môn học **Trí tuệ nhân tạo**.
+Dự án trực quan hóa các thuật toán tìm kiếm cho bài toán 8-Puzzle, phục vụ học phần **Trí tuệ nhân tạo**. Ứng dụng được xây dựng bằng Python/Tkinter, cho phép theo dõi từng bước mở rộng trạng thái, frontier, đường đi hiện tại, lời giải cuối cùng và các mô hình môi trường phức tạp như Belief State, Partially Observable, AND-OR Search và CSP.
 
 ## Thông tin sinh viên
-* **Họ và tên:** Nguyễn Phước Minh Triết
-* **Mã số sinh viên (MSSV):** 24110357
-* **Giảng viên:** TS. Phan Thị Huyền Trang
-* **Mã lớp học phần:** 252ARIN330585_08
-* **Trường:** Đại học Công nghệ Kỹ Thuật TP.HCM (HCMUTE)
-* **Link Github bài tập:** [https://github.com/ChissZar/8_puzzle_visualizer](https://github.com/ChissZar/8_puzzle_visualizer)
 
----
+- **Họ và tên:** Nguyễn Phước Minh Triết
+- **Mã số sinh viên (MSSV):** 24110357
+- **Giảng viên:** TS. Phan Thị Huyền Trang
+- **Mã lớp học phần:** 252ARIN330585_08
+- **Trường:** Đại học Sư phạm Kỹ thuật TP.HCM (HCMUTE)
+- **Link Github bài tập:** https://github.com/ChissZar/8_puzzle_visualizer
 
-## Cấu trúc thư mục dự án
-Dự án được thiết kế theo mô hình tách biệt rõ ràng giữa Logic toán học (Thuật toán) và Giao diện người dùng (UI):
+## Cấu trúc thư mục
 
 ```text
 8_puzzle_visualizer/
-│
-├── main.py                # Điểm bắt đầu (Entry point) để kích hoạt ứng dụng
-│
-├── logic/                 # Thư mục chứa thuần logic thuật toán 
-│   ├── uninformed_search/ # Nhóm thuật toán mù (BFS, DFS, IDS, UCS)
-│   ├── informed_search/   # Nhóm thuật toán kinh nghiệm (Greedy, A*, IDA*)
-│   └── local_search/      # Nhóm tìm kiếm cục bộ (Hill Climbing, Beam Search, Simulated Annealing)
-│
-└── ui/                    # Thư mục quản lý toàn bộ giao diện Tkinter
-    ├── __init__.py
-    ├── main_window.py     # Sân khấu chính, bố cục Frontier, khu vực Expansion và Controls
-    └── board_widget.py    # Thành phần (Component) vẽ ma trận 3x3 tái sử dụng liên tục
+├── main.py
+├── README.md
+├── logic/
+│   ├── puzzle_state.py
+│   ├── uninformed_search/
+│   │   ├── bfs_solver.py
+│   │   ├── dfs_solver.py
+│   │   ├── ids_solver.py
+│   │   └── ucs_solver.py
+│   ├── informed_search/
+│   │   ├── greedy_solver.py
+│   │   ├── astar_solver.py
+│   │   └── ida_star_solver.py
+│   ├── local_search/
+│   │   ├── simple_hill_climbing_solver.py
+│   │   ├── steepest_ascent_hill_climbing_solver.py
+│   │   ├── stochastic_hill_climbing_solver.py
+│   │   ├── random_restart_hill_climbing_solver.py
+│   │   ├── local_beam_search_solver.py
+│   │   └── simulated_annealing_solver.py
+│   ├── complex_env_search/
+│   │   ├── common.py
+│   │   ├── sensorless_goal_solver.py
+│   │   ├── sensorless_homing_solver.py
+│   │   ├── partially_observable_solver.py
+│   │   └── and_or_graph_search.py
+│   └── csp/
+│       └── backtracking_solver.py
+└── ui/
+    ├── main_window.py
+    └── board_widget.py
 ```
-## Hướng dẫn cài đặt và khởi chạy
-**1. Yêu cầu hệ thống**
 
-- Máy tính đã cài đặt sẵn Python 3.x.
+## Cài đặt và khởi chạy
 
-- Dự án này sử dụng thư viện giao diện đồ họa Tkinter (thư viện core đã được tích hợp sẵn khi cài đặt Python, không cần cài thêm từ bên ngoài).
+Yêu cầu:
 
-**2. Cách khởi chạy chương trình**
-- Để tránh lỗi nạp gói dữ liệu (ImportError), bạn cần đảm bảo rằng VS Code hoặc Terminal của bạn đang mở chính xác tại thư mục dự án.
+- Python 3.x
+- Tkinter, thường đã có sẵn khi cài Python
 
-- Mở Terminal hoặc Command Prompt lên.
-
-- Di chuyển vào thư mục gốc của dự án:
+Chạy chương trình:
 
 ```bash
-  cd đường_dẫn_đến_thư_mục/8_puzzle_visualizer
-```
-- Khởi chạy ứng dụng bằng lệnh:
-```bash
-  python main.py
+cd duong_dan_den_thu_muc/8_puzzle_visualizer
+python main.py
 ```
 
-## Hướng dẫn Tùy chỉnh
-Mọi thao tác cấu hình bài toán đều có thể thực hiện trực tiếp trên giao diện trực quan:
+## Cách nhập dữ liệu
 
-1. **Thay đổi Trạng thái Ban đầu (Initial Board) và Đích (Goal Board):**
-   - Nhìn sang thanh Sidebar bên trái màn hình.
-   - Nhập chuỗi 9 số (từ 0 đến 8, cách nhau bởi khoảng trắng) vào ô **CUSTOM INITIAL BOARD** và **CUSTOM GOAL BOARD**. (Số `0` đại diện cho ô trống).
-   - *Ví dụ:* `1 2 3 4 0 6 7 5 8`
-2. **Áp dụng cấu hình:**
-   - Bấm nút **"Apply Custom & Reset"** (Màu Đỏ). 
-   - Hệ thống sẽ tự động khởi tạo lại toàn bộ lõi thuật toán và vẽ lại giao diện ngay lập tức.
+### Trạng thái đơn
 
----
+Dùng cho các thuật toán Chapter 1, 2, 3 và AND-OR Search:
 
-## Các tính năng học thuật nổi bật
+```text
+CUSTOM INITIAL BOARD: 1 2 3 4 0 6 7 5 8
+CUSTOM GOAL BOARD:    1 2 3 4 5 6 7 8 0
+```
 
-- **Hệ thống Thuật toán:** Ứng dụng hỗ trợ phân tích 3 chương kiến thức cốt lõi của AI (sẽ còn được cập nhật thêm), dễ dàng chuyển đổi qua Tab và Combobox:
-  - *Chapter 1 (Uninformed Search):* BFS, DFS, IDS, UCS.
-  - *Chapter 2 (Informed Search):* Greedy, A*, IDA*.
-  - *Chapter 3 (Local Search):* Simple Hill Climbing, Steepest-Ascent Hill Climbing, Stochastic Hill Climbing, Random Restart Hill Climbing, Local Beam Search, Simulated Annealing.
+Số `0` đại diện cho ô trống.
 
-- **Khu vực Expansion & Bóc tách Chi phí thông minh:** Trực quan hóa hàm EXPAND với 4 hướng trượt.
-  - Tự động hiển thị các chỉ số toán học ($g$, $h$, $f$, Cost) ngay bên dưới các trạng thái lân cận tùy theo thuật toán đang chạy (Ví dụ: A* sẽ hiện $f(n) = g(n) + h(n)$, Hill Climbing chỉ hiện $h(n)$).
-  - Đổ màu sắc thái chuẩn học thuật: 
-    - **Ô viền xanh lá:** Trạng thái mới, hợp lệ.
-    - **Ô viền đỏ:** Trạng thái đã tồn tại (Reached/Cutoff), hoặc có Heuristic tệ hơn hiện tại, bị loại bỏ.
-    - **Ô viền vàng:** Trạng thái đích (Goal), *Đặc biệt trong Simulated Annealing:* Biểu thị việc thuật toán chấp nhận đi vào một đường xấu ($h$ tăng) nhờ xác suất $P$ để thoát cực đại cục bộ..
+### Belief State
 
-- **Frontier View Linh hoạt:** Khay chứa tự động đổi tên và cấu trúc mô phỏng đúng lý thuyết: **Queue** (BFS), **Stack** (DFS, IDS), **Priority Queue** (UCS, Greedy, A*), và **Neighbors** (dành riêng cho thuật toán không lưu vết như Hill Climbing).
+Dùng cho các thuật toán trong môi trường phức tạp:
 
-- **Kiểm soát & Truy vết quá trình:** - Cung cấp nút `Next Step` / `Prev Step` để phân tích thủ công từng chu kỳ, hoặc `Auto Play` để AI tự động giải (có thể tùy chỉnh tốc độ).
-  - Bảng **Final Solution** hiển thị danh sách các bước đi tối ưu kèm theo chi phí của từng bước. Cho phép click vào từng bước để xem lại cấu hình ma trận trong quá khứ.
+- Searching with no observation (Has Goal)
+- Searching with no observation (No Goal)
+- Searching for partially observable problems
+
+Có thể nhập nhiều board bằng dấu phẩy:
+
+```text
+1 2 3 4 0 6 7 5 8, 1 2 3 4 5 6 7 0 8
+```
+
+Nếu không nhập nhiều board, chương trình tự tạo một Belief State demo để mô phỏng trường hợp không quan sát được chính xác trạng thái ban đầu.
+
+## Danh sách thuật toán
+
+### Chapter 1: Uninformed Search
+
+- BFS (Breadth-First Search)
+- DFS (Depth-First Search)
+- IDS (Iterative Deepening Search)
+- UCS (Uniform Cost Search)
+
+### Chapter 2: Informed Search
+
+- Greedy Search
+- A* Search
+- IDA* Search
+
+### Chapter 3: Local Search
+
+- Simple Hill Climbing
+- Steepest-Ascent Hill Climbing
+- Stochastic Hill Climbing
+- Random Restart Hill Climbing
+- Local Beam Search
+- Simulated Annealing
+
+### Chapter 4: Complex Environments
+
+- Searching with no observation (Has Goal)
+- Searching with no observation (No Goal)
+- Searching for partially observable problems
+- AND-OR Search (Non-deterministic)
+
+Nhóm này sử dụng Belief State hoặc conditional plan:
+
+- **Sensorless Has Goal:** tìm chuỗi hành động đưa toàn bộ Belief State về đúng Goal.
+- **Sensorless No Goal:** không cần Goal, chỉ cần dồn Belief State về còn đúng một trạng thái.
+- **Partially Observable:** agent chỉ quan sát được một phần trạng thái, hiện tại sensor mô phỏng bằng vị trí ô trống `0`.
+- **AND-OR Search:** xử lý môi trường không tất định, ví dụ hành động có thể thành công hoặc bị trượt và đứng yên.
+
+### Chapter 5: Constraint Satisfaction Problems
+
+- Backtracking Search (8-Puzzle CSP)
+- Backtracking + Forward Checking (8-Puzzle CSP)
+
+Mô hình CSP trong chương này:
+
+- **Variables:** `x1, x2, ..., x9`, tương ứng 9 ô của bảng 8-puzzle.
+- **Domain:** mỗi biến có miền giá trị `{0, 1, 2, 3, 4, 5, 6, 7, 8}`.
+- **Constraints:**
+  - Mỗi biến nhận đúng một giá trị.
+  - Các biến không được trùng giá trị.
+  - Giá trị tại từng ô phải khớp với `CUSTOM GOAL BOARD`.
+- **Backtracking:** chọn biến chưa gán, thử giá trị domain theo thứ tự random, kiểm tra ràng buộc rồi quay lui khi thất bại.
+- **Forward Checking:** sau khi gán một giá trị, loại giá trị đó khỏi domain của các biến liên quan.
+
+## Tính năng giao diện
+
+- Chia thuật toán theo tab chương học.
+- `Next Step` để chạy từng bước.
+- `Prev Step` để quay lại bước trước, bao gồm cả các solver dùng generator như Partially Observable và AND-OR.
+- `Auto Play` với tốc độ tùy chỉnh.
+- `Current Path` hiển thị đường đi hoặc nhánh quan sát hiện tại.
+- `Final Solution` hiển thị lời giải cuối cùng, có thể bấm vào từng bước để xem lại trạng thái.
+- Frontier tự đổi cách hiển thị theo thuật toán: Queue, Stack, Priority Queue, Neighbors, Belief State hoặc CSP Assignment.
+- Với Belief State:
+  - Hiển thị kích thước `|B|`.
+  - Hiển thị các board có thể xảy ra.
+  - Hiển thị kết quả sau từng action.
+  - Với Partially Observable, hiển thị `SENSOR OBSERVATION` để phân biệt bước quan sát với bước hành động.
+- Với AND-OR Search:
+  - Hiển thị cây OR/AND.
+  - OR node là trạng thái agent chọn hành động.
+  - AND node là các kết quả môi trường có thể sinh ra.
+- Với CSP:
+  - Hiển thị assignment hiện tại.
+  - Hiển thị domain từng biến.
+  - Hiển thị biến đang xét, giá trị đang thử và trạng thái accept/reject.

@@ -22,6 +22,16 @@ from logic.local_search.random_restart_hill_climbing_solver import RandomRestart
 from logic.local_search.local_beam_search_solver import LocalBeamSearchSolver
 from logic.local_search.simulated_annealing_solver import SimulatedAnnealingSolver
 
+# --- CHƯƠNG 4: COMPLEX ENVIRONMENTS ---
+from logic.complex_env_search.sensorless_goal_solver import SensorlessGoalSolver
+from logic.complex_env_search.sensorless_homing_solver import SensorlessHomingSolver
+from logic.complex_env_search.partially_observable_solver import PartiallyObservableSolver
+from logic.complex_env_search.and_or_graph_search import AndOrGraphSearchSolver
+from logic.complex_env_search.common import make_auto_belief
+
+# --- CHƯƠNG 5: CONSTRAINT SATISFACTION PROBLEMS ---
+from logic.csp.backtracking_solver import BacktrackingCSPSolver, ForwardCheckingCSPSolver
+
 BG_MAIN = "#0f172a"      
 BG_PANEL = "#1e293b"     
 TEXT_MAIN = "#f8fafc"    
@@ -44,6 +54,8 @@ class MainWindow:
         self.step_count = 0
         self.initial_board = (1, 2, 3, 4, 0, 6, 7, 5, 8) 
         self.goal_board = (1, 2, 3, 4, 5, 6, 7, 8, 0)
+        self.initial_belief_states = [self.initial_board]
+        self.manual_belief_input = False
         
         self.algorithms = {
             "BFS (Breadth-First Search)": BFSSolver,
@@ -58,7 +70,13 @@ class MainWindow:
             "Stochastic Hill Climbing (Manhattan)": StochasticHillClimbingSolver,
             "Random Restart Hill Climbing (Manhattan)": RandomRestartHillClimbingSolver,
             "Local Beam Search (k=2)": LocalBeamSearchSolver,
-            "Simulated Annealing (Manhattan)": SimulatedAnnealingSolver
+            "Simulated Annealing (Manhattan)": SimulatedAnnealingSolver,
+            "Searching with no observation (Has Goal)": SensorlessGoalSolver,
+            "Searching with no observation (No Goal)": SensorlessHomingSolver,
+            "Searching for partially observable problems": PartiallyObservableSolver,
+            "AND-OR Search (Non-deterministic)": AndOrGraphSearchSolver,
+            "Backtracking Search (8-Puzzle CSP)": BacktrackingCSPSolver,
+            "Backtracking + Forward Checking (8-Puzzle CSP)": ForwardCheckingCSPSolver
         }
 
         self.algo_docs = {
@@ -74,7 +92,14 @@ class MainWindow:
             "Stochastic HC": "== STOCHASTIC HILL CLIMBING ==\n- Loại: Local Search (Ngẫu nhiên)\n- Đặc điểm: Lọc ra danh sách 'Better Neighbors', sau đó bốc NGẪU NHIÊN 1 trạng thái để đi tiếp. Giúp tránh kẹt lối mòn.",
             "Restart HC": "== RANDOM RESTART HILL CLIMBING ==\n- Cơ chế: Nếu kẹt cực đại cục bộ, thuật toán sẽ quay về ĐÚNG VẠCH XUẤT PHÁT (Start) để leo đồi lại. Dựa vào việc chọn ngẫu nhiên các lân cận (Stochastic), kỳ vọng lần chạy sau sẽ rẽ sang nhánh khác để thoát kẹt.\n- Phân tích: Áp dụng vào 8-Puzzle thường kém hiệu quả vì tập 'Better Neighbors' quá ít, thuật toán dễ đi lại vào vết xe đổ cũ.",
             "Beam Search": "== LOCAL BEAM SEARCH (k) ==\n- Cơ chế: Sinh TẤT CẢ lân cận từ k trạng thái hiện tại (chùm). Sau đó gom lại, sắp xếp và chỉ chọn ra đúng k lân cận tốt nhất để đi tiếp thế hệ sau.\n- Chú thích Giao diện ở Current State Set -> Neighbors:\n  + Bên trái ô trống: Tập k trạng thái của chùm hiện tại (Current State Set).\n  + Bên phải ô trống: Hồ bơi chứa các lân cận (Neighbors) vừa được sinh ra để chờ xét duyệt.\n- Ưu điểm: Tránh kẹt cục bộ tốt hơn Hill Climbing nhờ đi song song nhiều nhánh.",
-            "Simulated Annealing": "== SIMULATED ANNEALING ==\n- Cảm hứng: Quá trình tôi luyện kim loại.\n- Cơ chế: Chọn ngẫu nhiên 1 lân cận.\n  + Δ < 0 (TỐT HƠN): Chấp nhận luôn (Ô XANH LÁ).\n  + Δ >= 0 (TỆ HƠN): Không bỏ qua ngay, mà chấp nhận với xác suất P = exp(-Δ/T) (Ô VÀNG GOLD), hoặc Từ chối (Ô ĐỎ).\n- Ý nghĩa: Nhiệt độ T càng cao (lúc mới chạy), thuật toán càng 'dễ dãi' đi vào đường xấu (Màu Vàng) để thoát khỏi cực đại cục bộ. T giảm dần, nó sẽ khắt khe hơn."        }
+            "Simulated Annealing": "== SIMULATED ANNEALING ==\n- Cảm hứng: Quá trình tôi luyện kim loại.\n- Cơ chế: Chọn ngẫu nhiên 1 lân cận.\n  + Δ < 0 (TỐT HƠN): Chấp nhận luôn (Ô XANH LÁ).\n  + Δ >= 0 (TỆ HƠN): Không bỏ qua ngay, mà chấp nhận với xác suất P = exp(-Δ/T) (Ô VÀNG GOLD), hoặc Từ chối (Ô ĐỎ).\n- Ý nghĩa: Nhiệt độ T càng cao (lúc mới chạy), thuật toán càng 'dễ dãi' đi vào đường xấu (Màu Vàng) để thoát khỏi cực đại cục bộ. T giảm dần, nó sẽ khắt khe hơn.",
+            "Sensorless (Goal)": "== SENSORLESS (HAS GOAL) ==\n- Không quan sát được trạng thái ban đầu, nhưng biết Goal.\n- Nếu không nhập nhiều ma trận bằng dấu phẩy, chương trình tự dựng Belief State quanh CUSTOM GOAL BOARD.\n- Cơ chế: một action được áp dụng đồng thời cho mọi board trong Belief State; đụng tường thì board đó đứng im.\n- Mục tiêu: tìm chuỗi action làm toàn bộ Belief State co lại đúng Goal.",
+            "Sensorless (No Goal)": "== SENSORLESS (NO GOAL) ==\n- Không có Goal để kiểm tra đích; thuật toán chỉ cần xóa mơ hồ.\n- Nếu không nhập nhiều ma trận bằng dấu phẩy, chương trình tự dựng Belief State demo.\n- Cơ chế: một action được áp dụng đồng thời cho mọi board có thể xảy ra.\n- Mục tiêu (Homing Sequence): dồn Belief State về đúng 1 board duy nhất, bất kể board đó là gì.",
+            "Partially Observable": "== PARTIALLY OBSERVABLE (AND-OR) ==\n- Agent không thấy toàn bộ board, chỉ nhận percept một phần: vị trí ô trống (0).\n- Nếu không nhập nhiều ma trận bằng dấu phẩy, chương trình tự dựng Belief State demo.\n- OR: agent chọn action. AND: sensor chia kết quả thành các nhánh observation.\n- Mục tiêu: tìm plan xử lý được mọi nhánh quan sát cho tới Goal.",
+            "AND-OR": "== AND-OR SEARCH (NON-DETERMINISTIC) ==\n- Đầu vào: 1 ma trận duy nhất.\n- Môi trường: Không tất định (bị trơn trượt). Lệnh UP có thể thành công, hoặc đứng yên.\n- Mục tiêu: Tìm 'Kế hoạch có điều kiện' để dù trượt chân vẫn về đích.",
+            "Backtracking CSP": "== BACKTRACKING SEARCH FOR 8-PUZZLE CSP ==\n- Loại: Constraint Satisfaction Problems.\n- Variables: x1, x2, ..., x9 tương ứng 9 ô của bảng 8-puzzle.\n- Domain: mỗi xi có thể nhận giá trị 0..8.\n- ORDER-DOMAIN-VALUES: xáo trộn random thứ tự xét giá trị mỗi lần chọn biến.\n- Constraints: mỗi xi chỉ nhận 1 giá trị, các xi không được trùng nhau, và mỗi ô phải khớp CUSTOM GOAL BOARD.\n- Cơ chế đúng mã giả: chọn biến chưa gán -> thử từng giá trị domain -> nếu consistent thì add vào assignment -> gọi đệ quy -> nếu thất bại thì remove và backtrack.",
+            "Forward Checking CSP": "== BACKTRACKING + FORWARD CHECKING FOR 8-PUZZLE CSP ==\n- Vẫn dùng X = {x1...x9}, D = {0...8}, C = all-different + fixed goal-cell constraints.\n- Khác Backtracking thường: thuật toán lưu domain riêng D(xi) của từng biến.\n- Khi đã gán xi = value, mọi biến chưa gán liên quan sẽ loại value khỏi domain.\n- Với 8-puzzle, các biến đều liên quan với nhau qua constraint không trùng số, nên gán x1 = 1 thì D(x2)...D(x9) đều bỏ 1.\n- Nếu domain của biến nào rỗng, thuật toán backtrack ngay."
+        }
         
         self.solver = None 
         self.setup_ui()
@@ -84,7 +109,7 @@ class MainWindow:
         style = ttk.Style()
         style.theme_use('clam')
         style.configure('TNotebook', background=BG_MAIN, borderwidth=0)
-        style.configure('TNotebook.Tab', background=BG_PANEL, foreground=TEXT_MUTED, font=('Fixedsys', 11, 'bold'), padding=[15, 8])
+        style.configure('TNotebook.Tab', background=BG_PANEL, foreground=TEXT_MUTED, font=('Fixedsys', 10, 'bold'), padding=[8, 7])
         style.map('TNotebook.Tab', background=[('selected', ACCENT_BLUE)], foreground=[('selected', BG_MAIN)])
         style.configure('TCombobox', fieldbackground=BG_PANEL, background=BG_MAIN, foreground=TEXT_MAIN)
         style.map('TCombobox',
@@ -108,7 +133,8 @@ class MainWindow:
         self.left_sidebar.pack_propagate(False)
 
         # Custom Input Matrix
-        tk.Label(self.left_sidebar, text="CUSTOM INITIAL BOARD", fg=HIGHLIGHT_GOLD, bg=BG_PANEL, font=('Fixedsys', 11, 'bold')).pack(anchor=tk.W, pady=(0, 5))
+        self.lbl_initial_title = tk.Label(self.left_sidebar, text="CUSTOM INITIAL BOARD", fg=HIGHLIGHT_GOLD, bg=BG_PANEL, font=('Fixedsys', 11, 'bold'))
+        self.lbl_initial_title.pack(anchor=tk.W, pady=(0, 5))
         self.ent_input = tk.Entry(self.left_sidebar, font=('Fixedsys', 14), bg=BG_MAIN, fg=TEXT_MAIN, insertbackground=TEXT_MAIN, relief=tk.FLAT)
         self.ent_input.insert(0, "1 2 3 4 0 6 7 5 8")
         self.ent_input.pack(fill=tk.X, pady=(0, 15))
@@ -166,32 +192,71 @@ class MainWindow:
         self.tab_uninformed = tk.Frame(self.notebook, bg=BG_MAIN)
         self.tab_informed = tk.Frame(self.notebook, bg=BG_MAIN)
         self.tab_local = tk.Frame(self.notebook, bg=BG_MAIN)
+        self.tab_complex = tk.Frame(self.notebook, bg=BG_MAIN)
+        self.tab_csp = tk.Frame(self.notebook, bg=BG_MAIN)
 
-        self.notebook.add(self.tab_uninformed, text="Chapter 1: Uninformed Search")
-        self.notebook.add(self.tab_informed, text="Chapter 2: Informed Search")
-        self.notebook.add(self.tab_local, text="Chapter 3: Local Search")
+        self.notebook.add(self.tab_uninformed, text="Ch1: Uninformed")
+        self.notebook.add(self.tab_informed, text="Ch2: Informed")
+        self.notebook.add(self.tab_local, text="Ch3: Local")
+        self.notebook.add(self.tab_complex, text="Ch4: Complex")
+        self.notebook.add(self.tab_csp, text="Ch5: CSP")
 
         self.cb_uninformed = ttk.Combobox(self.tab_uninformed, state="readonly", font=('Fixedsys', 12), width=50)
-        self.cb_uninformed['values'] = ["BFS (Breadth-First Search)", "DFS (Depth-First Search)", "IDS (Iterative Deepening Search)", "UCS (Uniform Cost Search)"]
+        self.cb_uninformed['values'] = [
+            "BFS (Breadth-First Search)", 
+            "DFS (Depth-First Search)", 
+            "IDS (Iterative Deepening Search)", 
+            "UCS (Uniform Cost Search)"
+        ]
         self.cb_uninformed.current(0)
         self.cb_uninformed.pack(anchor=tk.W, padx=15, pady=15)
         self.cb_uninformed.bind("<<ComboboxSelected>>", lambda e: self.reset_environment())
 
         self.cb_informed = ttk.Combobox(self.tab_informed, state="readonly", font=('Fixedsys', 12), width=50)
-        self.cb_informed['values'] = ["Greedy Search (Manhattan)", "A* Search (Inversions + Misplaced)", "IDA* Search (Manhattan + Misplaced)"]
+        self.cb_informed['values'] = [
+            "Greedy Search (Manhattan)", 
+            "A* Search (Inversions + Misplaced)", 
+            "IDA* Search (Manhattan + Misplaced)"]
         self.cb_informed.current(1) 
         self.cb_informed.pack(anchor=tk.W, padx=15, pady=15)
         self.cb_informed.bind("<<ComboboxSelected>>", lambda e: self.reset_environment())
 
         self.cb_local = ttk.Combobox(self.tab_local, state="readonly", font=('Fixedsys', 12), width=50)
-        self.cb_local['values'] = ["Simple Hill Climbing (Manhattan)", "Steepest-Ascent Hill Climbing (Manhattan)", "Stochastic Hill Climbing (Manhattan)", "Random Restart Hill Climbing (Manhattan)", "Local Beam Search (k=2)", "Simulated Annealing (Manhattan)"]
+        self.cb_local['values'] = [
+            "Simple Hill Climbing (Manhattan)", 
+            "Steepest-Ascent Hill Climbing (Manhattan)", 
+            "Stochastic Hill Climbing (Manhattan)", 
+            "Random Restart Hill Climbing (Manhattan)", 
+            "Local Beam Search (k=2)", 
+            "Simulated Annealing (Manhattan)"]
         self.cb_local.current(0)
         self.cb_local.pack(anchor=tk.W, padx=15, pady=15)
         self.cb_local.bind("<<ComboboxSelected>>", lambda e: self.reset_environment())
 
+        self.cb_complex = ttk.Combobox(self.tab_complex, state="readonly", font=('Fixedsys', 12), width=50)
+        self.cb_complex['values'] = [
+            "Searching with no observation (Has Goal)", 
+            "Searching with no observation (No Goal)", 
+            "Searching for partially observable problems",
+            "AND-OR Search (Non-deterministic)"
+        ]
+        self.cb_complex.current(0)
+        self.cb_complex.pack(anchor=tk.W, padx=15, pady=15)
+        self.cb_complex.bind("<<ComboboxSelected>>", lambda e: self.reset_environment())
+
+        self.cb_csp = ttk.Combobox(self.tab_csp, state="readonly", font=('Fixedsys', 12), width=50)
+        self.cb_csp['values'] = [
+            "Backtracking Search (8-Puzzle CSP)",
+            "Backtracking + Forward Checking (8-Puzzle CSP)"
+        ]
+        self.cb_csp.current(0)
+        self.cb_csp.pack(anchor=tk.W, padx=15, pady=15)
+        self.cb_csp.bind("<<ComboboxSelected>>", lambda e: self.reset_environment())
+
         # --- SHARED WORKSPACE DISPLAY PANELS ---
         self.frontier_frame = tk.Frame(self.right_container, bg=BG_MAIN, pady=5)
         self.frontier_frame.pack(fill=tk.X, padx=15)
+        self.frontier_strip_visible = True
         
         self.lbl_frontier_title = tk.Label(self.frontier_frame, text="Frontier (Queue):", fg=TEXT_MUTED, bg=BG_MAIN, font=('Fixedsys', 12, 'bold'))
         self.lbl_frontier_title.pack(side=tk.LEFT, padx=5)
@@ -230,6 +295,34 @@ class MainWindow:
         self.node_right, self.lbl_right = create_node_with_cost(1, 2, padx=15)
         self.node_down, self.lbl_down = create_node_with_cost(2, 1, pady=0)
 
+        self.and_or_tree_frame = tk.Frame(self.center_wrapper, bg=BG_PANEL)
+        self.and_or_tree_canvas = tk.Canvas(
+            self.and_or_tree_frame,
+            bg=BG_PANEL,
+            highlightthickness=0,
+            xscrollincrement=20,
+            yscrollincrement=20
+        )
+        self.and_or_tree_xscroll = tk.Scrollbar(
+            self.and_or_tree_frame,
+            orient=tk.HORIZONTAL,
+            command=self.and_or_tree_canvas.xview
+        )
+        self.and_or_tree_yscroll = tk.Scrollbar(
+            self.and_or_tree_frame,
+            orient=tk.VERTICAL,
+            command=self.and_or_tree_canvas.yview
+        )
+        self.and_or_tree_canvas.configure(
+            xscrollcommand=self.and_or_tree_xscroll.set,
+            yscrollcommand=self.and_or_tree_yscroll.set
+        )
+        self.and_or_tree_canvas.grid(row=0, column=0, sticky="nsew")
+        self.and_or_tree_yscroll.grid(row=0, column=1, sticky="ns")
+        self.and_or_tree_xscroll.grid(row=1, column=0, sticky="ew")
+        self.and_or_tree_frame.rowconfigure(0, weight=1)
+        self.and_or_tree_frame.columnconfigure(0, weight=1)
+
         # KHU VỰC LISTBOX
         self.path_container = tk.Frame(self.workspace_frame, bg=BG_MAIN, width=380)
         self.path_container.pack(side=tk.RIGHT, fill=tk.Y)
@@ -256,33 +349,564 @@ class MainWindow:
         for lbl in [self.lbl_up, self.lbl_down, self.lbl_left, self.lbl_right]:
             lbl.config(text="")
 
+    def set_and_or_tree_visible(self, visible):
+        if visible:
+            self.expand_frame.place_forget()
+            self.and_or_tree_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
+        else:
+            self.and_or_tree_frame.place_forget()
+            self.expand_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+
+    def set_frontier_strip_visible(self, visible):
+        if visible and not self.frontier_strip_visible:
+            self.frontier_frame.pack(fill=tk.X, padx=15, before=self.workspace_frame)
+            self.frontier_strip_visible = True
+        elif not visible and self.frontier_strip_visible:
+            self.frontier_frame.pack_forget()
+            self.frontier_strip_visible = False
+
+    def set_tree_scrollbars_visible(self, horizontal=True, vertical=True):
+        if horizontal:
+            self.and_or_tree_xscroll.grid()
+        else:
+            self.and_or_tree_xscroll.grid_remove()
+
+        if vertical:
+            self.and_or_tree_yscroll.grid()
+        else:
+            self.and_or_tree_yscroll.grid_remove()
+
+    def is_csp_algorithm(self, algo_name=None):
+        name = algo_name if algo_name is not None else self.get_current_algo_name()
+        return "Backtracking Search" in name or "CSP" in name
+
+    def is_belief_algorithm(self, algo_name=None):
+        name = algo_name if algo_name is not None else self.get_current_algo_name()
+        return "observation" in name or "observable" in name
+
+    def get_complex_initial_belief(self, algo_name):
+        if self.manual_belief_input and len(self.initial_belief_states) > 1:
+            return list(self.initial_belief_states)
+
+        if "Has Goal" in algo_name:
+            anchor = self.goal_board
+            reason = "Auto Belief State: no observed initial board, generated around CUSTOM GOAL BOARD."
+        elif "No Goal" in algo_name:
+            anchor = self.goal_board
+            reason = "Auto Belief State: no goal is used by the solver; CUSTOM GOAL BOARD is only a seed for hidden states."
+        else:
+            anchor = self.goal_board
+            reason = "Auto Belief State: partial observation starts from several possible hidden boards."
+
+        self.auto_belief_reason = reason
+        return make_auto_belief(anchor)
+
+    def board_to_lines(self, board):
+        rows = []
+        for row in range(3):
+            values = []
+            for col in range(3):
+                value = board[row * 3 + col]
+                values.append("_" if value == 0 else str(value))
+            rows.append(" ".join(values))
+        return rows
+
+    def draw_tree_board(self, x, y, board, title, fill_color, outline_color, subtitle=""):
+        canvas = self.and_or_tree_canvas
+        width, height = 138, 118
+        canvas.create_rectangle(
+            x - width // 2,
+            y - height // 2,
+            x + width // 2,
+            y + height // 2,
+            fill=fill_color,
+            outline=outline_color,
+            width=3
+        )
+        canvas.create_text(x, y - 42, text=title, fill=TEXT_MAIN, font=("Fixedsys", 10, "bold"))
+        for index, line in enumerate(self.board_to_lines(board)):
+            canvas.create_text(x, y - 12 + index * 20, text=line, fill=TEXT_MAIN, font=("Consolas", 13, "bold"))
+        if subtitle:
+            canvas.create_text(x, y + 45, text=subtitle, fill=TEXT_MUTED, font=("Fixedsys", 8))
+
+    def draw_and_or_tree(self, tree_snapshot):
+        canvas = self.and_or_tree_canvas
+        canvas.delete("all")
+        self.set_tree_scrollbars_visible(horizontal=True, vertical=True)
+
+        if not tree_snapshot:
+            canvas.create_text(
+                440,
+                240,
+                text="Bấm Next Step để dựng cây AND-OR.",
+                fill=TEXT_MUTED,
+                font=("Fixedsys", 15, "bold")
+            )
+            canvas.configure(scrollregion=(0, 0, 900, 520))
+            return
+
+        width = max(900, self.and_or_tree_canvas.winfo_width())
+        center_x = width // 2
+        root_y = 92
+        action_y = 255
+        outcome_y = 430
+
+        canvas.create_text(
+            20,
+            18,
+            anchor=tk.W,
+            text="AND-OR TREE VIEW  |  OR: AI chọn hành động  |  AND: môi trường sinh mọi kết quả",
+            fill=HIGHLIGHT_GOLD,
+            font=("Fixedsys", 12, "bold")
+        )
+
+        note = tree_snapshot.get("note", "")
+        if note:
+            canvas.create_text(20, 43, anchor=tk.W, text=note, fill=TEXT_MUTED, font=("Fixedsys", 10))
+
+        depth = tree_snapshot.get("depth", 0)
+        self.draw_tree_board(
+            center_x,
+            root_y,
+            tree_snapshot["root"],
+            "OR STATE",
+            "#26344d",
+            ACCENT_BLUE,
+            f"depth = {depth}"
+        )
+
+        action = tree_snapshot.get("action")
+        outcomes = tree_snapshot.get("outcomes", [])
+        if not action:
+            canvas.create_text(
+                center_x,
+                260,
+                text="OR node đang chờ thuật toán thử các hành động UP, DOWN, LEFT, RIGHT.",
+                fill=TEXT_MUTED,
+                font=("Fixedsys", 12)
+            )
+            canvas.configure(scrollregion=(0, 0, width, 540))
+            return
+
+        diamond_w, diamond_h = 120, 72
+        canvas.create_line(center_x, root_y + 60, center_x, action_y - diamond_h // 2, fill=TEXT_MUTED, width=2, arrow=tk.LAST)
+        canvas.create_polygon(
+            center_x,
+            action_y - diamond_h // 2,
+            center_x + diamond_w // 2,
+            action_y,
+            center_x,
+            action_y + diamond_h // 2,
+            center_x - diamond_w // 2,
+            action_y,
+            fill="#3b2f1f",
+            outline=ACCENT_ORANGE,
+            width=3
+        )
+        canvas.create_text(center_x, action_y - 10, text="AND", fill=TEXT_MAIN, font=("Fixedsys", 12, "bold"))
+        canvas.create_text(center_x, action_y + 12, text=f"Action: {action}", fill=HIGHLIGHT_GOLD, font=("Fixedsys", 10, "bold"))
+
+        if not outcomes:
+            canvas.create_text(center_x, outcome_y, text="Chưa có outcome từ môi trường.", fill=TEXT_MUTED, font=("Fixedsys", 12))
+            canvas.configure(scrollregion=(0, 0, width, 540))
+            return
+
+        spacing = 190
+        total_width = spacing * (len(outcomes) - 1)
+        start_x = center_x - total_width // 2
+        max_x = width
+
+        for index, board in enumerate(outcomes):
+            x = start_x + index * spacing
+            max_x = max(max_x, x + 110)
+            canvas.create_line(center_x, action_y + diamond_h // 2, x, outcome_y - 62, fill=TEXT_MUTED, width=2, arrow=tk.LAST)
+            self.draw_tree_board(
+                x,
+                outcome_y,
+                board,
+                f"OUTCOME {index + 1}",
+                "#1f3a2d",
+                ACCENT_GREEN if board == self.goal_board else TEXT_MUTED,
+                "must solve"
+            )
+
+        canvas.configure(scrollregion=(0, 0, max_x + 80, 570))
+
+    def draw_compact_board(self, canvas, x, y, board, title="", outline=TEXT_MUTED, fill="#26344d", subtitle=""):
+        width, height = 94, 102
+        canvas.create_rectangle(
+            x,
+            y,
+            x + width,
+            y + height,
+            fill=fill,
+            outline=outline,
+            width=2
+        )
+        if title:
+            canvas.create_text(x + 8, y + 10, anchor=tk.W, text=title, fill=HIGHLIGHT_GOLD, font=("Fixedsys", 8, "bold"))
+
+        cell = 24
+        start_x = x + 11
+        start_y = y + 24
+        for row in range(3):
+            for col in range(3):
+                value = board[row * 3 + col]
+                x1 = start_x + col * cell
+                y1 = start_y + row * cell
+                x2 = x1 + cell - 2
+                y2 = y1 + cell - 2
+                tile_fill = "#34495e" if value != 0 else "#26344d"
+                canvas.create_rectangle(x1, y1, x2, y2, fill=tile_fill, outline="#516174", width=1)
+                if value != 0:
+                    canvas.create_text((x1 + x2) // 2, (y1 + y2) // 2, text=str(value), fill=TEXT_MAIN, font=("Consolas", 11, "bold"))
+
+        if subtitle:
+            canvas.create_text(x + width // 2, y + 92, text=subtitle, fill=TEXT_MUTED, font=("Fixedsys", 7))
+
+    def draw_belief_boards(self, canvas, boards, x, y, max_items=8, columns=4, title_prefix="S"):
+        boards = sorted(boards)
+        for index, board in enumerate(boards[:max_items]):
+            row, col = divmod(index, columns)
+            self.draw_compact_board(
+                canvas,
+                x + col * 112,
+                y + row * 118,
+                board,
+                f"{title_prefix}{index + 1}",
+                outline=ACCENT_BLUE
+            )
+
+        if len(boards) > max_items:
+            row, col = divmod(max_items, columns)
+            canvas.create_text(
+                x + col * 112 + 44,
+                y + row * 118 + 48,
+                text=f"+{len(boards) - max_items} more",
+                fill=TEXT_MUTED,
+                font=("Fixedsys", 10, "bold")
+            )
+
+    def draw_belief_state(self, data):
+        canvas = self.and_or_tree_canvas
+        canvas.delete("all")
+        self.set_tree_scrollbars_visible(horizontal=False, vertical=False)
+
+        current_node = data.get("current", getattr(self.solver, "initial_node", None)) if data else getattr(self.solver, "initial_node", None)
+        current_boards = sorted(current_node.boards) if current_node and hasattr(current_node, "boards") else []
+        algo_name = self.get_current_algo_name()
+        mode_title = "PARTIALLY OBSERVABLE SEARCH" if "observable" in algo_name else "SENSORLESS SEARCH"
+        goal_text = "Goal: not used" if "No Goal" in algo_name else f"Goal: {self.format_board_inline(self.goal_board)}"
+
+        canvas.create_text(
+            20,
+            18,
+            anchor=tk.W,
+            text=f"{mode_title}  |  Belief State = set of possible hidden boards",
+            fill=HIGHLIGHT_GOLD,
+            font=("Fixedsys", 12, "bold")
+        )
+        canvas.create_text(20, 43, anchor=tk.W, text=goal_text, fill=TEXT_MUTED, font=("Fixedsys", 9, "bold"))
+        if getattr(self, "auto_belief_reason", "") and not self.manual_belief_input:
+            canvas.create_text(20, 66, anchor=tk.W, text=self.auto_belief_reason, fill=ACCENT_BLUE, font=("Fixedsys", 9, "bold"))
+
+        canvas.create_text(
+            20,
+            102,
+            anchor=tk.W,
+            text=f"Current Belief State |B| = {len(current_boards)}",
+            fill=ACCENT_GREEN,
+            font=("Fixedsys", 12, "bold")
+        )
+        self.draw_belief_boards(canvas, current_boards, 20, 125, max_items=8, columns=4, title_prefix="B")
+
+        children_info = data.get("children_info", {}) if data else {}
+        action_y = 395
+        canvas.create_text(20, action_y - 28, anchor=tk.W, text="Action results", fill=ACCENT_ORANGE, font=("Fixedsys", 12, "bold"))
+
+        if not children_info:
+            canvas.create_text(
+                20,
+                action_y + 20,
+                anchor=tk.W,
+                text="Bấm Next Step để sinh kết quả cho từng action.",
+                fill=TEXT_MUTED,
+                font=("Fixedsys", 11)
+            )
+        else:
+            for index, move in enumerate(("UP", "DOWN", "LEFT", "RIGHT")):
+                info = children_info.get(move)
+                x = 20 + index * 230
+                if not info:
+                    canvas.create_rectangle(x, action_y, x + 205, action_y + 178, fill="#1b2536", outline="#334155", width=2)
+                    canvas.create_text(x + 102, action_y + 82, text=move, fill="#526176", font=("Fixedsys", 13, "bold"))
+                    continue
+
+                child_node = info["node"]
+                child_boards = sorted(child_node.boards)
+                status = info.get("type", "new")
+                outline = ACCENT_GREEN if status == "new" else ACCENT_RED
+                if status == "success":
+                    outline = HIGHLIGHT_GOLD
+
+                canvas.create_rectangle(x, action_y, x + 205, action_y + 178, fill="#1b2536", outline=outline, width=3)
+                canvas.create_text(x + 10, action_y + 16, anchor=tk.W, text=f"{move}  -> |B'|={len(child_boards)}", fill=TEXT_MAIN, font=("Fixedsys", 10, "bold"))
+                canvas.create_text(x + 10, action_y + 38, anchor=tk.W, text=status.upper(), fill=outline, font=("Fixedsys", 9, "bold"))
+
+                percepts = info.get("percepts")
+                if percepts:
+                    canvas.create_text(x + 10, action_y + 60, anchor=tk.W, text=f"observations: {len(percepts)}", fill=ACCENT_BLUE, font=("Fixedsys", 8, "bold"))
+                    for p_idx, percept in enumerate(percepts[:2]):
+                        canvas.create_text(x + 10, action_y + 82 + p_idx * 22, anchor=tk.W, text=f"obs {p_idx + 1}: |B|={len(percept)}", fill=TEXT_MUTED, font=("Fixedsys", 8))
+                    if len(percepts) > 2:
+                        canvas.create_text(x + 10, action_y + 126, anchor=tk.W, text=f"+{len(percepts) - 2} obs more", fill=TEXT_MUTED, font=("Fixedsys", 8))
+                elif child_boards:
+                    self.draw_compact_board(canvas, x + 55, action_y + 58, child_boards[0], "rep", outline=outline)
+                    if len(child_boards) > 1:
+                        canvas.create_text(x + 102, action_y + 165, text=f"+{len(child_boards) - 1} possible boards", fill=TEXT_MUTED, font=("Fixedsys", 8))
+
+        frontier_count = data.get("frontier_count", 0) if data else 0
+        canvas.create_text(
+            20,
+            590,
+            anchor=tk.W,
+            text=f"Frontier in memory: {frontier_count} belief node(s)",
+            fill=TEXT_MUTED,
+            font=("Fixedsys", 10, "bold")
+        )
+
+        canvas.configure(scrollregion=(0, 0, 980, 620))
+
+    def draw_csp_state(self, snapshot):
+        canvas = self.and_or_tree_canvas
+        canvas.delete("all")
+        self.set_tree_scrollbars_visible(horizontal=True, vertical=True)
+
+        assignment = snapshot.get("assignment", {})
+        selected_var = snapshot.get("selected_var")
+        trying_value = snapshot.get("trying_value")
+        stage = snapshot.get("stage", "start")
+        variables = snapshot.get("variables", [])
+        fixed_values = snapshot.get("fixed_values", {})
+        current_domains = snapshot.get("current_domains", snapshot.get("domains", {}))
+
+        canvas.create_text(
+            20,
+            18,
+            anchor=tk.W,
+            text="CSP BACKTRACKING SEARCH  |  8-Puzzle Cell Assignment",
+            fill=HIGHLIGHT_GOLD,
+            font=("Fixedsys", 12, "bold")
+        )
+        canvas.create_text(
+            20,
+            44,
+            anchor=tk.W,
+            text=snapshot.get("message", ""),
+            fill=TEXT_MUTED,
+            font=("Fixedsys", 10)
+        )
+
+        start_x, start_y = 120, 100
+        cell = 110
+
+        for index, var in enumerate(variables):
+            row, col = divmod(index, 3)
+            x1 = start_x + col * cell
+            y1 = start_y + row * cell
+            x2 = x1 + cell - 10
+            y2 = y1 + cell - 10
+
+            value = assignment.get(var)
+            shown_value = "_" if value is None else str(value)
+            target_value = fixed_values.get(var)
+
+            fill = "#26344d"
+            outline = HIGHLIGHT_GOLD if var == selected_var else TEXT_MUTED
+            width = 5 if var == selected_var else 2
+            if var == selected_var and trying_value is not None and stage == "reject":
+                outline = ACCENT_RED
+                fill = "#3b1f2a"
+            elif var == selected_var and trying_value is not None and stage in ["consistent", "success"]:
+                outline = ACCENT_GREEN
+                fill = "#1f3a2d"
+
+            canvas.create_rectangle(x1, y1, x2, y2, fill=fill, outline=outline, width=width)
+            canvas.create_text(x1 + 16, y1 + 14, text=var, fill=TEXT_MUTED, font=("Fixedsys", 9, "bold"))
+            canvas.create_text(x1 + 50, y1 + 50, text=shown_value, fill=TEXT_MAIN, font=("Consolas", 26, "bold"))
+            canvas.create_text(x1 + 50, y1 + 82, text=f"target={target_value}", fill=TEXT_MUTED, font=("Fixedsys", 8))
+
+        domain_x = 540
+        canvas.create_text(domain_x, 92, anchor=tk.W, text="Domain of each xi", fill=ACCENT_BLUE, font=("Fixedsys", 13, "bold"))
+        canvas.create_text(domain_x, 125, anchor=tk.W, text="{0, 1, 2, 3, 4, 5, 6, 7, 8}", fill=TEXT_MAIN, font=("Consolas", 12, "bold"))
+        domain_order = snapshot.get("domain_order", [])
+        random_order_text = f"Random order: {domain_order}" if domain_order else "Random order: waiting for SELECT"
+        canvas.create_text(domain_x, 155, anchor=tk.W, text=random_order_text, fill=HIGHLIGHT_GOLD, font=("Consolas", 10, "bold"))
+
+        canvas.create_text(domain_x, 205, anchor=tk.W, text="Constraints C", fill=ACCENT_GREEN, font=("Fixedsys", 13, "bold"))
+        canvas.create_text(domain_x, 235, anchor=tk.W, text="1. Each xi has exactly one value.", fill=TEXT_MAIN, font=("Fixedsys", 10))
+        canvas.create_text(domain_x, 262, anchor=tk.W, text="2. All xi values are different.", fill=TEXT_MAIN, font=("Fixedsys", 10))
+        canvas.create_text(domain_x, 289, anchor=tk.W, text="3. xi must match its goal cell.", fill=TEXT_MAIN, font=("Fixedsys", 10))
+
+        canvas.create_text(domain_x, 330, anchor=tk.W, text="Assignment + Current Domains", fill=HIGHLIGHT_GOLD, font=("Fixedsys", 13, "bold"))
+        for idx, var in enumerate(variables):
+            value = assignment.get(var, "-")
+            row, col = divmod(idx, 3)
+            target = fixed_values.get(var)
+            domain_values = current_domains.get(var, [])
+            domain_text = "fixed" if value != "-" else str(domain_values)
+            canvas.create_text(
+                domain_x,
+                365 + idx * 24,
+                anchor=tk.W,
+                text=f"{var} ({row},{col}) = {value}  target:{target}  D:{domain_text}",
+                fill=TEXT_MAIN if value != "-" else TEXT_MUTED,
+                font=("Consolas", 9, "bold")
+            )
+
+        canvas.create_text(
+            20,
+            565,
+            anchor=tk.W,
+            text="CSP formulation: X = {x1...x9}, D = {0...8}, C = all-different + fixed goal-cell constraints.",
+            fill=TEXT_MUTED,
+            font=("Fixedsys", 10)
+        )
+        canvas.configure(scrollregion=(0, 0, 980, 620))
+
+    def update_csp_ui(self, data):
+        snapshot = data.get("csp_snapshot")
+        if snapshot:
+            self.draw_csp_state(snapshot)
+
+        self.clear_neighbors()
+        for bw in self.frontier_boards:
+            bw.update_board(None)
+
+        assignment = snapshot.get("assignment", {}) if snapshot else {}
+        assigned_count = len(assignment)
+        self.lbl_stats.config(
+            text=f"Step: {self.step_count} | Assigned: {assigned_count}/9 | Stage: {snapshot.get('stage', 'N/A') if snapshot else 'N/A'}",
+            fg=TEXT_MUTED
+        )
+
+        if data["status"] == "failure":
+            self.btn_next.config(state=tk.DISABLED)
+            self.btn_auto.config(state=tk.DISABLED)
+            self.lbl_stats.config(text="CSP FAILED: NO CONSISTENT ASSIGNMENT FOUND", fg=ACCENT_RED)
+            self.solution_path = []
+            self.path_listbox.delete(0, tk.END)
+            self.path_listbox.insert(tk.END, "No solution found")
+            return
+
+        if data["status"] == "success":
+            self.btn_next.config(state=tk.DISABLED)
+            self.btn_auto.config(state=tk.DISABLED)
+            self.lbl_stats.config(text="CSP SOLVED: COMPLETE 8-PUZZLE CELL ASSIGNMENT", fg=ACCENT_GREEN)
+            self.solution_path = []
+            self.path_listbox.delete(0, tk.END)
+
+            path = data.get("path", [])
+            for idx, node in enumerate(path):
+                text = f"Step {idx:02d}: " + (node.move if node.move else "START")
+                self.path_listbox.insert(tk.END, text)
+                self.solution_path.append({
+                    "text": text,
+                    "csp_snapshot": {
+                        "variables": self.solver.variables,
+                        "domains": self.solver.domains,
+                        "positions": self.solver.positions,
+                        "fixed_values": self.solver.fixed_values,
+                        "assignment": dict(node.assignment),
+                        "board": node.board,
+                        "stage": "success",
+                        "selected_var": None,
+                        "trying_value": None,
+                        "message": text
+                    }
+                })
+            return
+
     def apply_custom_input(self):
         raw_initial = self.ent_input.get().strip()
         raw_goal = self.ent_goal.get().strip() 
         try:
-            parts_initial = [int(x) for x in raw_initial.split() if x.strip() != ""]
             parts_goal = [int(x) for x in raw_goal.split() if x.strip() != ""]
-            
-            if len(parts_initial) != 9 or len(parts_goal) != 9:
-                raise ValueError("Bắt buộc phải nhập đúng 9 số cho mỗi ô cờ!")
-            if set(parts_initial) != set(range(9)) or set(parts_goal) != set(range(9)):
-                raise ValueError("Bảng cờ phải chứa các số từ 0 đến 8 không trùng lặp!")
-            
-            self.initial_board = tuple(parts_initial)
+            if len(parts_goal) != 9 or set(parts_goal) != set(range(9)):
+                raise ValueError("Bảng cờ đích phải đúng 9 số từ 0-8!")
             self.goal_board = tuple(parts_goal)
-            self.reset_environment()
-            messagebox.showinfo("Thành công", f"Đã áp dụng thông số mới!\nStart: {self.initial_board}\nGoal: {self.goal_board}")
-        except Exception as e:
-            messagebox.showerror("Lỗi dữ liệu", f"Chuỗi nhập không hợp lệ: {str(e)}\n\nĐịnh dạng đúng ví dụ: 1 2 3 4 0 6 7 5 8")
+            
+            if raw_initial == "":
+                if self.is_belief_algorithm(self.get_current_algo_name()):
+                    self.initial_belief_states = []
+                    self.initial_board = self.goal_board
+                    self.manual_belief_input = False
+                    self.reset_environment()
+                    messagebox.showinfo("Thành công", "Đã để trống input và dùng Belief State tự động cho môi trường phức tạp.")
+                    return
+                raise ValueError("Bảng cờ ban đầu không được để trống với thuật toán trạng thái đơn!")
 
+            initial_strings = raw_initial.split(',')
+            self.initial_belief_states = []
+            
+            for state_str in initial_strings:
+                parts = [int(x) for x in state_str.split() if x.strip() != ""]
+                if len(parts) != 9 or set(parts) != set(range(9)):
+                    raise ValueError("Mỗi bảng cờ phải đúng 9 số từ 0-8!")
+                self.initial_belief_states.append(tuple(parts))
+                
+            self.initial_board = self.initial_belief_states[0] 
+            self.manual_belief_input = len(self.initial_belief_states) > 1
+            self.reset_environment()
+            messagebox.showinfo("Thành công", f"Đã nạp {len(self.initial_belief_states)} trạng thái đầu vào!")
+        except Exception as e:
+            messagebox.showerror("Lỗi dữ liệu", f"Lỗi: {str(e)}\n\nNếu nhập nhiều ma trận Belief State, hãy dùng dấu phẩy.\nVí dụ: 1 2 3 4 0 6 7 5 8, 1 2 3 4 5 6 7 0 8")
+    
     def get_current_algo_name(self):
         tab_idx = self.notebook.index(self.notebook.select())
         if tab_idx == 0: return self.cb_uninformed.get()
         if tab_idx == 1: return self.cb_informed.get()
-        return self.cb_local.get()
+        if tab_idx == 2: return self.cb_local.get()
+        if tab_idx == 3: return self.cb_complex.get()
+        if tab_idx == 4: return self.cb_csp.get()
+        return ""
 
     def on_tab_changed(self, event):
         self.reset_environment()
+
+    def create_solver_for_current_selection(self):
+        selected_algo_name = self.get_current_algo_name()
+        SolverClass = self.algorithms[selected_algo_name]
+
+        if self.is_csp_algorithm(selected_algo_name):
+            return SolverClass(self.initial_board, goal_board=self.goal_board)
+
+        if self.is_belief_algorithm(selected_algo_name):
+            belief_states = self.get_complex_initial_belief(selected_algo_name)
+            return SolverClass(belief_states, goal_board=self.goal_board)
+
+        return SolverClass(self.initial_board, goal_board=self.goal_board)
+
+    def make_solver_history_snapshot(self):
+        try:
+            return copy.deepcopy(self.solver)
+        except TypeError:
+            pass
+
+        selected_algo_name = self.get_current_algo_name()
+        if "AND-OR" not in selected_algo_name and not self.is_belief_algorithm(selected_algo_name):
+            return None
+
+        replay_solver = self.create_solver_for_current_selection()
+        for _ in range(self.step_count):
+            replay_solver.step()
+        return replay_solver
+
+    def make_data_history_snapshot(self):
+        try:
+            return copy.deepcopy(self.current_state_data)
+        except Exception:
+            return self.current_state_data
 
     def reset_environment(self):
         self.is_auto_playing = False
@@ -299,15 +923,33 @@ class MainWindow:
             bw.update_board(None)
 
         selected_algo_name = self.get_current_algo_name()
+        is_csp = self.is_csp_algorithm(selected_algo_name)
+        is_belief = self.is_belief_algorithm(selected_algo_name)
+        self.lbl_initial_title.config(text="CUSTOM INITIAL BOARD (OPTIONAL)" if is_belief else "CUSTOM INITIAL BOARD")
+        self.set_and_or_tree_visible("AND-OR" in selected_algo_name or is_csp or is_belief)
+        self.set_frontier_strip_visible(not ("AND-OR" in selected_algo_name or is_csp or is_belief))
         
-        all_solvers = {}
-        for k, v in self.algorithms.items():
-            all_solvers[k] = v
-        SolverClass = all_solvers[selected_algo_name]
-        self.solver = SolverClass(self.initial_board, goal_board=self.goal_board)
+        self.solver = self.create_solver_for_current_selection()
 
         self.txt_docs.delete("1.0", tk.END)
-        if "Stochastic" in selected_algo_name:
+        
+        if is_csp:
+            self.lbl_frontier_title.config(text="CSP Assignment:")
+            doc_key = "Forward Checking CSP" if "Forward Checking" in selected_algo_name else "Backtracking CSP"
+            self.txt_docs.insert("1.0", self.algo_docs[doc_key])
+        elif "AND-OR" in selected_algo_name or is_belief: 
+            if "AND-OR" in selected_algo_name:
+                self.lbl_frontier_title.config(text="Erratic Environment:")
+                self.txt_docs.insert("1.0", self.algo_docs["AND-OR"])
+            else:
+                self.lbl_frontier_title.config(text="Current Belief State -> :")
+                if "No Goal" in selected_algo_name:
+                    self.txt_docs.insert("1.0", self.algo_docs["Sensorless (No Goal)"])
+                elif "observable" in selected_algo_name:
+                    self.txt_docs.insert("1.0", self.algo_docs["Partially Observable"])
+                else:
+                    self.txt_docs.insert("1.0", self.algo_docs["Sensorless (Goal)"])
+        elif "Stochastic" in selected_algo_name:
             self.lbl_frontier_title.config(text="Better Neighbors:")
             self.txt_docs.insert("1.0", self.algo_docs["Stochastic HC"])
         elif "Beam Search" in selected_algo_name:
@@ -340,9 +982,37 @@ class MainWindow:
             elif "IDA*" in selected_algo_name: self.txt_docs.insert("1.0", self.algo_docs["IDA*"])
             elif "A*" in selected_algo_name: self.txt_docs.insert("1.0", self.algo_docs["A*"])
 
-        self.node_center.update_board(self.solver.initial_node.board, highlight=True)
+        if is_csp:
+            self.draw_csp_state(self.solver.initial_snapshot())
+            self.lbl_stats.config(text="Steps: 0 | Assigned: 0/9 | Stage: start", fg=TEXT_MUTED)
+            self.ui_history = []
+            self.btn_prev.config(state=tk.DISABLED)
+            return
+
+        if is_belief:
+            initial_data = {
+                "status": "start",
+                "current": self.solver.initial_node,
+                "frontier_preview": sorted(self.solver.initial_node.boards),
+                "frontier_count": 1
+            }
+            self.draw_belief_state(initial_data)
+            for index, board in enumerate(sorted(self.solver.initial_node.boards)[:len(self.frontier_boards)]):
+                self.frontier_boards[index].update_board(board)
+            b_size = len(self.solver.initial_node.boards)
+            source = "Manual" if self.manual_belief_input and len(self.initial_belief_states) > 1 else "Auto"
+            self.lbl_stats.config(text=f"Steps: 0 | {source} Belief State Size: {b_size} | Frontier: 1", fg=TEXT_MUTED)
+            self.ui_history = []
+            self.btn_prev.config(state=tk.DISABLED)
+            return
+
+        # Tự nhận diện Node mảng hay Node đơn
+        first_board = list(self.solver.initial_node.boards)[0] if hasattr(self.solver.initial_node, 'boards') else self.solver.initial_node.board        
+        self.node_center.update_board(first_board, highlight=True)
         self.node_center.config(bg="#a55b00")
-        self.frontier_boards[0].update_board(self.solver.initial_node.board)
+        self.frontier_boards[0].update_board(first_board)
+        if "AND-OR" in selected_algo_name:
+            self.draw_and_or_tree(getattr(self.solver, "last_tree_snapshot", None))
         
         if "IDS" in selected_algo_name or "IDA*" in selected_algo_name:
             self.lbl_stats.config(text="Limit: 0 | Steps: 0 | Frontier: 1", fg=TEXT_MUTED)
@@ -352,6 +1022,11 @@ class MainWindow:
             self.lbl_stats.config(text="Steps: 0 | Neighbors: 1", fg=TEXT_MUTED)
         elif "Annealing" in selected_algo_name:
             self.lbl_stats.config(text="Steps: 0 | Generated Neighbor: 1", fg=TEXT_MUTED)
+        elif "AND-OR" in selected_algo_name or "observation" in selected_algo_name or "observable" in selected_algo_name:
+            # Tự động đếm kích thước mảng nếu có, nếu không thì mặc định là 1 (AND-OR)
+            node = self.solver.initial_node
+            b_size = len(node.boards) if hasattr(node, 'boards') else 1
+            self.lbl_stats.config(text=f"Steps: 0 | Belief State Size: {b_size} | Frontier: 1", fg=TEXT_MUTED)
         else:
             self.lbl_stats.config(text="Steps: 0 | Reached: 1 | Frontier: 1", fg=TEXT_MUTED)
         
@@ -359,9 +1034,14 @@ class MainWindow:
         self.btn_prev.config(state=tk.DISABLED)
 
     def next_step(self):
-        solver_snapshot = copy.deepcopy(self.solver)
-        self.ui_history.append((self.step_count, solver_snapshot, self.current_state_data))
-        self.btn_prev.config(state=tk.NORMAL) 
+        solver_snapshot = self.make_solver_history_snapshot()
+        data_snapshot = self.make_data_history_snapshot()
+
+        if solver_snapshot is not None:
+            self.ui_history.append((self.step_count, solver_snapshot, data_snapshot))
+            self.btn_prev.config(state=tk.NORMAL)
+        else:
+            self.btn_prev.config(state=tk.DISABLED)
 
         self.step_count += 1
         state_data = self.solver.step()
@@ -408,10 +1088,25 @@ class MainWindow:
         temp_path.reverse()
         
         for idx, node in enumerate(temp_path):
-            m_val = getattr(node, 'move', None)
-            m_str = f"Step {idx:02d}: " + (str(m_val) if m_val else "START")
+            m_str = f"Step {idx:02d}: " + self.format_path_step_label(idx, node)
             self.current_path_listbox.insert(tk.END, m_str)
         self.current_path_listbox.see(tk.END) 
+
+    def format_path_step_label(self, idx, node):
+        move_val = getattr(node, 'move', None)
+        if move_val:
+            return str(move_val)
+
+        if idx == 0:
+            return "START"
+
+        current_algo = self.get_current_algo_name()
+        if "observable" in current_algo:
+            return "SENSOR OBSERVATION"
+        if self.is_belief_algorithm(current_algo):
+            return "BELIEF UPDATE"
+
+        return "START"
 
     def colorize_node(self, widget, lbl_widget, move_name, children_info, current_algo):
         if move_name not in children_info:
@@ -422,7 +1117,7 @@ class MainWindow:
             
         info = children_info[move_name]
         node_obj = info["node"]
-        board_data = node_obj.board
+        board_data = list(node_obj.boards)[0] if hasattr(node_obj, 'boards') else node_obj.board
         widget.update_board(board_data)
         
         # BÓC TÁCH CHI PHÍ
@@ -453,8 +1148,156 @@ class MainWindow:
         elif info["type"] == "success":
             widget.config(bg=HIGHLIGHT_GOLD)
 
+    def add_solution_item(self, text, board=None):
+        self.path_listbox.insert(tk.END, text)
+        self.solution_path.append({"text": text, "board": board})
+
+    def format_board_inline(self, board):
+        rows = []
+        for row in range(3):
+            values = []
+            for col in range(3):
+                value = board[row * 3 + col]
+                values.append("_" if value == 0 else str(value))
+            rows.append(" ".join(values))
+        return " / ".join(rows)
+
+    def show_and_or_solution(self, plan, start_board):
+        self.solution_path = []
+        self.path_listbox.delete(0, tk.END)
+        self.add_solution_item("Step 00: START", start_board)
+
+        step_no = 1
+
+        def walk(state, sub_plan, depth=0):
+            nonlocal step_no
+            indent = "  " * depth
+
+            if sub_plan == []:
+                self.add_solution_item(f"{indent}GOAL reached", state)
+                return
+
+            if isinstance(sub_plan, str):
+                retry_text = sub_plan.replace("RETRY_FROM_DEPTH_", "retry from step ")
+                self.add_solution_item(f"{indent}if slip/stay -> {retry_text}", state)
+                return
+
+            if not isinstance(sub_plan, list) or len(sub_plan) != 2:
+                self.add_solution_item(f"{indent}{sub_plan}", state)
+                return
+
+            action, outcomes = sub_plan
+            current_step = step_no
+            self.add_solution_item(f"{indent}Step {current_step:02d}: TRY {action}", state)
+            step_no += 1
+
+            if not isinstance(outcomes, dict):
+                return
+
+            for outcome_board, outcome_plan in outcomes.items():
+                outcome_label = self.format_board_inline(outcome_board)
+                if outcome_board == state:
+                    self.add_solution_item(
+                        f"{indent}  if slip/stay -> retry Step {current_step:02d}",
+                        outcome_board
+                    )
+                else:
+                    self.add_solution_item(
+                        f"{indent}  if success -> {outcome_label}",
+                        outcome_board
+                    )
+
+                if outcome_board != state:
+                    walk(outcome_board, outcome_plan, depth + 1)
+
+        walk(start_board, plan)
+
+    def update_belief_ui(self, data):
+        self.draw_belief_state(data)
+        self.clear_neighbors()
+
+        preview = [board for board in data.get("frontier_preview", []) if board != "SEPARATOR"]
+        for i, board_widget in enumerate(self.frontier_boards):
+            if i < len(preview):
+                board_widget.update_board(preview[i])
+            else:
+                board_widget.update_board(None)
+
+        current_node = data.get("current")
+        belief_size = len(current_node.boards) if current_node and hasattr(current_node, "boards") else 0
+        self.lbl_stats.config(
+            text=f"Step: {self.step_count} | Belief State Size: {belief_size} | Frontier: {data.get('frontier_count', 0)}",
+            fg=TEXT_MUTED
+        )
+
+        if data["status"] == "failure":
+            self.btn_next.config(state=tk.DISABLED)
+            self.btn_auto.config(state=tk.DISABLED)
+            self.lbl_stats.config(text="BELIEF SEARCH STOPPED: NO PLAN FOUND", fg=ACCENT_RED)
+            return
+
+        if data["status"] == "success":
+            self.btn_next.config(state=tk.DISABLED)
+            self.btn_auto.config(state=tk.DISABLED)
+            final_size = len(data["solution_node"].boards)
+            success_text = "BELIEF STATE REACHED GOAL" if "Has Goal" in self.get_current_algo_name() else "BELIEF STATE COLLAPSED TO ONE STATE"
+            if "observable" in self.get_current_algo_name():
+                success_text = "PARTIALLY OBSERVABLE PLAN FOUND"
+            self.lbl_stats.config(text=f"{success_text} | Final |B| = {final_size}", fg=ACCENT_GREEN)
+
+            self.path_listbox.delete(0, tk.END)
+            self.solution_path = []
+
+            if "plan" in data and "observable" in self.get_current_algo_name():
+                def add_plan_line(text, boards=None):
+                    self.path_listbox.insert(tk.END, text)
+                    self.solution_path.append({"text": text, "belief_boards": boards})
+
+                add_plan_line("Conditional plan found", sorted(data["solution_node"].boards))
+
+                def walk_plan(plan, depth=0):
+                    indent = "  " * depth
+                    if plan == []:
+                        add_plan_line(f"{indent}GOAL reached")
+                        return
+                    if not isinstance(plan, list) or len(plan) != 2:
+                        add_plan_line(f"{indent}{plan}")
+                        return
+
+                    action, branches = plan
+                    add_plan_line(f"{indent}TRY {action}")
+                    if isinstance(branches, dict):
+                        for index, (percept, sub_plan) in enumerate(branches.items(), start=1):
+                            boards = sorted(percept)
+                            add_plan_line(f"{indent}  if observation {index}: |B|={len(boards)}", boards)
+                            walk_plan(sub_plan, depth + 2)
+                    else:
+                        walk_plan(branches, depth + 1)
+
+                walk_plan(data["plan"])
+                return
+
+            self.solution_path = data.get("path", [])
+            for idx, node in enumerate(self.solution_path):
+                move_str = f"Step {idx:02d}: " + self.format_path_step_label(idx, node)
+                if hasattr(node, "boards"):
+                    move_str += f"  |B|={len(node.boards)}"
+                self.path_listbox.insert(tk.END, move_str)
+
     def update_ui_from_state(self, data):
         if data is None:
+            return
+
+        current_algo = self.get_current_algo_name()
+        if "AND-OR" in current_algo:
+            self.draw_and_or_tree(data.get("tree_snapshot"))
+
+        if self.is_csp_algorithm(current_algo):
+            self.update_csp_ui(data)
+            return
+
+        if self.is_belief_algorithm(current_algo):
+            self.update_belief_ui(data)
             return
 
         if data["status"] == "failure":
@@ -463,15 +1306,15 @@ class MainWindow:
             self.btn_auto.config(state=tk.DISABLED)
             
             if "current" in data:
-                self.node_center.update_board(data["current"].board, highlight=True)
+                err_board = list(data["current"].boards)[0] if hasattr(data["current"], 'boards') else data["current"].board
+                self.node_center.update_board(err_board, highlight=True)
                 self.node_center.config(bg=ACCENT_RED)
                 self.clear_neighbors()
             return
             
-        current_algo = self.get_current_algo_name()
         is_heuristic_only = "Hill Climbing" in current_algo or "Greedy" in current_algo
             
-        current_board = data["current"].board
+        current_board = list(data["current"].boards)[0] if hasattr(data["current"], 'boards') else data["current"].board
         self.node_center.update_board(current_board, highlight=True)
         self.node_center.config(bg="#a55b00")
 
@@ -486,34 +1329,44 @@ class MainWindow:
             self.colorize_node(self.node_down, self.lbl_down, 'DOWN', info, current_algo)
             self.colorize_node(self.node_left, self.lbl_left, 'LEFT', info, current_algo)
             self.colorize_node(self.node_right, self.lbl_right, 'RIGHT', info, current_algo)
+        else:
+            self.clear_neighbors()
 
         if data["status"] == "success":
             self.btn_next.config(state=tk.DISABLED)
             self.btn_auto.config(state=tk.DISABLED) 
             self.lbl_stats.config(text="THE GOAL HAS BEEN FOUND!!!", fg=ACCENT_GREEN)
             
-            current_board = data["solution_node"].board
+            solution_node = data["solution_node"]
+            # Nếu Node có chứa mảng '.boards' (Sensorless) thì bốc cái đầu tiên, nếu không thì lấy '.board' (AND-OR và các thuật toán cũ)
+            current_board = list(solution_node.boards)[0] if hasattr(solution_node, 'boards') else solution_node.board
             self.node_center.update_board(current_board, highlight=True)
             self.node_center.config(bg=HIGHLIGHT_GOLD)
             
             self.clear_neighbors()
-            
-            self.solution_path = data["path"]
             self.path_listbox.delete(0, tk.END)
-            for idx, node in enumerate(self.solution_path):
-                move_val = getattr(node, 'move')
-                move_str = f"Step {idx:02d}: " + (str(move_val) if move_val else "START")
 
-                if hasattr(node, 'f') and hasattr(node, 'h'): 
-                    if is_heuristic_only:
-                        move_str += f" (h = {node.h})"
-                    else:
-                        move_str += f" (f = {node.f})"
-                elif hasattr(self.solver, 'node_costs'):
-                    cost_val = self.solver.node_costs.get(node.board, 0)
-                    move_str += f" (Cost: {cost_val})"
+            # NẾU LÀ BÀI AND-OR TRẢ VỀ KẾ HOẠCH CÓ ĐIỀU KIỆN
+            if "plan" in data:
+                start_board = data["solution_node"].board
+                self.show_and_or_solution(data["plan"], start_board)
                     
-                self.path_listbox.insert(tk.END, move_str)
+            # CÁC THUẬT TOÁN CÒN LẠI TRẢ VỀ ĐƯỜNG ĐI THẲNG 
+            else:
+                self.solution_path = data["path"]
+                for idx, node in enumerate(self.solution_path):
+                    move_str = f"Step {idx:02d}: " + self.format_path_step_label(idx, node)
+
+                    if hasattr(node, 'f') and hasattr(node, 'h'): 
+                        if is_heuristic_only:
+                            move_str += f" (h = {node.h})"
+                        else:
+                            move_str += f" (f = {node.f})"
+                    elif hasattr(self.solver, 'node_costs'):
+                        cost_val = self.solver.node_costs.get(node.board, 0)
+                        move_str += f" (Cost: {cost_val})"
+                        
+                    self.path_listbox.insert(tk.END, move_str)
             return
 
         frontier_list = data["frontier_preview"]
@@ -582,7 +1435,48 @@ class MainWindow:
         if selection:
             index = selection[0]
             selected_node = self.solution_path[index]
-            self.node_center.update_board(selected_node.board, highlight=True)
+            if isinstance(selected_node, dict):
+                if "csp_snapshot" in selected_node:
+                    self.draw_csp_state(selected_node["csp_snapshot"])
+                    return
+
+                if "belief_boards" in selected_node:
+                    boards = selected_node.get("belief_boards") or []
+                    if boards:
+                        class SelectedBeliefNode:
+                            def __init__(self, node_boards):
+                                self.boards = frozenset(node_boards)
+
+                        self.draw_belief_state({
+                            "status": "selected",
+                            "current": SelectedBeliefNode(boards),
+                            "frontier_preview": sorted(boards),
+                            "frontier_count": 0
+                        })
+                    return
+
+                selected_board = selected_node.get("board")
+                if selected_board is None:
+                    return
+                if "AND-OR" in self.get_current_algo_name():
+                    self.draw_and_or_tree({
+                        "root": selected_board,
+                        "action": None,
+                        "outcomes": [],
+                        "depth": 0,
+                        "note": selected_node["text"]
+                    })
+            else:
+                if hasattr(selected_node, "boards") and self.is_belief_algorithm():
+                    self.draw_belief_state({
+                        "status": "selected",
+                        "current": selected_node,
+                        "frontier_preview": sorted(selected_node.boards),
+                        "frontier_count": 0
+                    })
+                    return
+                selected_board = list(selected_node.boards)[0] if hasattr(selected_node, 'boards') else selected_node.board
+            self.node_center.update_board(selected_board, highlight=True)
             self.node_center.config(bg=HIGHLIGHT_GOLD) 
             
             self.clear_neighbors()
