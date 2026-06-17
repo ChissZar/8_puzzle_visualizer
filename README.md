@@ -1,6 +1,6 @@
 # 8-Puzzle Visualizer
 
-Dự án trực quan hóa các thuật toán tìm kiếm cho bài toán 8-Puzzle, phục vụ học phần **Trí tuệ nhân tạo**. Ứng dụng được xây dựng bằng Python/Tkinter, cho phép theo dõi từng bước mở rộng trạng thái, frontier, đường đi hiện tại, lời giải cuối cùng và các mô hình môi trường phức tạp như Belief State, Partially Observable, AND-OR Search và CSP.
+Dự án trực quan hóa các thuật toán tìm kiếm cho bài toán 8-Puzzle, phục vụ học phần **Trí tuệ nhân tạo**. Ứng dụng được xây dựng bằng Python/Tkinter, cho phép theo dõi từng bước mở rộng trạng thái, frontier, đường đi hiện tại, lời giải cuối cùng và các mô hình như Belief State, Partially Observable, AND-OR Search, CSP và Adversarial Search.
 
 ## Thông tin sinh viên
 
@@ -8,7 +8,7 @@ Dự án trực quan hóa các thuật toán tìm kiếm cho bài toán 8-Puzzle
 - **Mã số sinh viên (MSSV):** 24110357
 - **Giảng viên:** TS. Phan Thị Huyền Trang
 - **Mã lớp học phần:** 252ARIN330585_08
-- **Trường:** Đại học Sư phạm Kỹ thuật TP.HCM (HCMUTE)
+- **Trường:** Đại học Công nghệ Kỹ thuật TP.HCM (HCMUTE)
 - **Link Github bài tập:** https://github.com/ChissZar/8_puzzle_visualizer
 
 ## Cấu trúc thư mục
@@ -41,6 +41,8 @@ Dự án trực quan hóa các thuật toán tìm kiếm cho bài toán 8-Puzzle
 │   │   ├── sensorless_homing_solver.py
 │   │   ├── partially_observable_solver.py
 │   │   └── and_or_graph_search.py
+│   ├── adversarial_search/
+│   │   └── minimax_solver.py
 │   └── csp/
 │       └── backtracking_solver.py
 └── ui/
@@ -133,6 +135,8 @@ Nhóm này sử dụng Belief State hoặc conditional plan:
 
 - Backtracking Search (8-Puzzle CSP)
 - Backtracking + Forward Checking (8-Puzzle CSP)
+- AC-3 Search (8-Puzzle CSP)
+- Min-Conflicts Search (8-Puzzle CSP)
 
 Mô hình CSP trong chương này:
 
@@ -144,12 +148,26 @@ Mô hình CSP trong chương này:
   - Giá trị tại từng ô phải khớp với `CUSTOM GOAL BOARD`.
 - **Backtracking:** chọn biến chưa gán, thử giá trị domain theo thứ tự random, kiểm tra ràng buộc rồi quay lui khi thất bại.
 - **Forward Checking:** sau khi gán một giá trị, loại giá trị đó khỏi domain của các biến liên quan.
+- **AC-3:** đưa toàn bộ arc `(Xi, Xj)` vào queue, loại các giá trị không có support trong domain biến còn lại, và thêm lại các arc liên quan khi một domain bị giảm.
+- **Min-Conflicts:** bắt đầu bằng một complete assignment, chọn ngẫu nhiên biến đang conflict, rồi đổi sang giá trị gây ít conflict nhất.
+
+### Chapter 6: Adversarial Search
+
+- Minimax Search (Tic-Tac-Toe Demo)
+
+Demo Minimax dùng tic-tac-toe thay vì 8-puzzle vì Minimax là thuật toán cho trò chơi đối kháng hai người:
+
+- **MAX:** người chơi `X`, chọn nhánh có utility lớn nhất.
+- **MIN:** người chơi `O`, chọn nhánh có utility nhỏ nhất.
+- **Utility:** `X` thắng = `+10`, hòa = `0`, `O` thắng = `-10`.
+- Thuật toán đi xuống các trạng thái terminal, gán utility, rồi truyền giá trị ngược lên cây.
+- Giao diện hiển thị cây game, node đang xét, cạnh đang trả value và đường đi cuối cùng MAX chọn.
 
 ## Tính năng giao diện
 
 - Chia thuật toán theo tab chương học.
 - `Next Step` để chạy từng bước.
-- `Prev Step` để quay lại bước trước, bao gồm cả các solver dùng generator như Partially Observable và AND-OR.
+- `Prev Step` để quay lại bước trước, bao gồm cả các solver dùng generator như Partially Observable, AND-OR và nhóm CSP.
 - `Auto Play` với tốc độ tùy chỉnh.
 - `Current Path` hiển thị đường đi hoặc nhánh quan sát hiện tại.
 - `Final Solution` hiển thị lời giải cuối cùng, có thể bấm vào từng bước để xem lại trạng thái.
@@ -167,3 +185,9 @@ Mô hình CSP trong chương này:
   - Hiển thị assignment hiện tại.
   - Hiển thị domain từng biến.
   - Hiển thị biến đang xét, giá trị đang thử và trạng thái accept/reject.
+  - Với AC-3, hiển thị current arc, queue size, queue preview và các giá trị bị loại khỏi domain.
+  - Với Min-Conflicts, hiển thị biến đang conflict, từng giá trị candidate được thử, điểm `CONFLICTS(v)` và bước gán giá trị tốt nhất.
+- Với Minimax:
+  - Hiển thị cây trò chơi MAX/MIN.
+  - Hiển thị utility tại terminal node và giá trị được truyền ngược lên.
+  - Tô node/cạnh đang xét và đường đi tối ưu sau khi thuật toán kết thúc.

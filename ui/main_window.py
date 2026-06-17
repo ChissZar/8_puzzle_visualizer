@@ -30,7 +30,10 @@ from logic.complex_env_search.and_or_graph_search import AndOrGraphSearchSolver
 from logic.complex_env_search.common import make_auto_belief
 
 # --- CHƯƠNG 5: CONSTRAINT SATISFACTION PROBLEMS ---
-from logic.csp.backtracking_solver import BacktrackingCSPSolver, ForwardCheckingCSPSolver
+from logic.csp.backtracking_solver import BacktrackingCSPSolver, ForwardCheckingCSPSolver, AC3CSPSolver, MinConflictsCSPSolver
+
+# --- CHƯƠNG 6: ADVERSARIAL SEARCH ---
+from logic.adversarial_search.minimax_solver import MinimaxSolver
 
 BG_MAIN = "#0f172a"      
 BG_PANEL = "#1e293b"     
@@ -76,7 +79,10 @@ class MainWindow:
             "Searching for partially observable problems": PartiallyObservableSolver,
             "AND-OR Search (Non-deterministic)": AndOrGraphSearchSolver,
             "Backtracking Search (8-Puzzle CSP)": BacktrackingCSPSolver,
-            "Backtracking + Forward Checking (8-Puzzle CSP)": ForwardCheckingCSPSolver
+            "Backtracking + Forward Checking (8-Puzzle CSP)": ForwardCheckingCSPSolver,
+            "AC-3 Search (8-Puzzle CSP)": AC3CSPSolver,
+            "Min-Conflicts Search (8-Puzzle CSP)": MinConflictsCSPSolver,
+            "Minimax Search (Tic-Tac-Toe Demo)": MinimaxSolver
         }
 
         self.algo_docs = {
@@ -98,7 +104,10 @@ class MainWindow:
             "Partially Observable": "== PARTIALLY OBSERVABLE (AND-OR) ==\n- Agent không thấy toàn bộ board, chỉ nhận percept một phần: vị trí ô trống (0).\n- Nếu không nhập nhiều ma trận bằng dấu phẩy, chương trình tự dựng Belief State demo.\n- OR: agent chọn action. AND: sensor chia kết quả thành các nhánh observation.\n- Mục tiêu: tìm plan xử lý được mọi nhánh quan sát cho tới Goal.",
             "AND-OR": "== AND-OR SEARCH (NON-DETERMINISTIC) ==\n- Đầu vào: 1 ma trận duy nhất.\n- Môi trường: Không tất định (bị trơn trượt). Lệnh UP có thể thành công, hoặc đứng yên.\n- Mục tiêu: Tìm 'Kế hoạch có điều kiện' để dù trượt chân vẫn về đích.",
             "Backtracking CSP": "== BACKTRACKING SEARCH FOR 8-PUZZLE CSP ==\n- Loại: Constraint Satisfaction Problems.\n- Variables: x1, x2, ..., x9 tương ứng 9 ô của bảng 8-puzzle.\n- Domain: mỗi xi có thể nhận giá trị 0..8.\n- ORDER-DOMAIN-VALUES: xáo trộn random thứ tự xét giá trị mỗi lần chọn biến.\n- Constraints: mỗi xi chỉ nhận 1 giá trị, các xi không được trùng nhau, và mỗi ô phải khớp CUSTOM GOAL BOARD.\n- Cơ chế đúng mã giả: chọn biến chưa gán -> thử từng giá trị domain -> nếu consistent thì add vào assignment -> gọi đệ quy -> nếu thất bại thì remove và backtrack.",
-            "Forward Checking CSP": "== BACKTRACKING + FORWARD CHECKING FOR 8-PUZZLE CSP ==\n- Vẫn dùng X = {x1...x9}, D = {0...8}, C = all-different + fixed goal-cell constraints.\n- Khác Backtracking thường: thuật toán lưu domain riêng D(xi) của từng biến.\n- Khi đã gán xi = value, mọi biến chưa gán liên quan sẽ loại value khỏi domain.\n- Với 8-puzzle, các biến đều liên quan với nhau qua constraint không trùng số, nên gán x1 = 1 thì D(x2)...D(x9) đều bỏ 1.\n- Nếu domain của biến nào rỗng, thuật toán backtrack ngay."
+            "Forward Checking CSP": "== BACKTRACKING + FORWARD CHECKING FOR 8-PUZZLE CSP ==\n- Vẫn dùng X = {x1...x9}, D = {0...8}, C = all-different + fixed goal-cell constraints.\n- Khác Backtracking thường: thuật toán lưu domain riêng D(xi) của từng biến.\n- Khi đã gán xi = value, mọi biến chưa gán liên quan sẽ loại value khỏi domain.\n- Với 8-puzzle, các biến đều liên quan với nhau qua constraint không trùng số, nên gán x1 = 1 thì D(x2)...D(x9) đều bỏ 1.\n- Nếu domain của biến nào rỗng, thuật toán backtrack ngay.",
+            "AC-3 CSP": "== AC-3 ARC CONSISTENCY FOR 8-PUZZLE CSP ==\n- Loại: Constraint Satisfaction Problems.\n- Variables: x1...x9 tương ứng 9 ô của 8-puzzle.\n- Domain ban đầu: D(xi) = {0...8}.\n- Queue ban đầu: toàn bộ arc có hướng (Xi, Xj).\n- Constraint: mỗi Xi phải khớp giá trị goal tại ô đó và Xi != Xj với mọi biến khác.\n- Mỗi bước lấy một arc khỏi queue, chạy RM-INCONSISTENT-VALUES(Xi, Xj).\n- Nếu D(Xi) bị giảm, thêm lại các arc liên quan (Xk, Xi) vào queue.\n- Khi queue rỗng, CSP đạt arc-consistency.",
+            "Min-Conflicts CSP": "== MIN-CONFLICTS FOR 8-PUZZLE CSP ==\n- Loại: Local Search for Constraint Satisfaction Problems.\n- Bắt đầu bằng một complete assignment, ở đây lấy từ CUSTOM INITIAL BOARD.\n- Nếu current là solution thì dừng.\n- Chọn một biến đang conflict.\n- Hiển thị từng lần thử v trong domain và tính CONFLICTS(var, v, current, csp).\n- Sau khi xét xong D(var), chọn giá trị gây ít conflict nhất rồi set var = value.\n- Lặp tối đa max_steps; nếu hết bước mà chưa hết conflict thì failure.\n- Với 8-puzzle CSP, conflict gồm: sai vị trí goal và trùng giá trị với biến khác.",
+            "Minimax": "== MINIMAX SEARCH ==\n- Loại: Adversarial Search, dùng cho trò chơi hai người.\n- Demo hiện tại dùng Tic-Tac-Toe để dễ thấy MAX/MIN.\n- MAX là X: cố gắng lấy utility lớn nhất.\n- MIN là O: cố gắng kéo utility xuống nhỏ nhất.\n- Utility: X thắng = +10, hòa = 0, O thắng = -10.\n- Cơ chế: đi xuống tới terminal state, gán utility, rồi truyền giá trị ngược lên cây.\n- MAX node chọn max(child values), MIN node chọn min(child values)."
         }
         
         self.solver = None 
@@ -194,12 +203,14 @@ class MainWindow:
         self.tab_local = tk.Frame(self.notebook, bg=BG_MAIN)
         self.tab_complex = tk.Frame(self.notebook, bg=BG_MAIN)
         self.tab_csp = tk.Frame(self.notebook, bg=BG_MAIN)
+        self.tab_adversarial = tk.Frame(self.notebook, bg=BG_MAIN)
 
         self.notebook.add(self.tab_uninformed, text="Ch1: Uninformed")
         self.notebook.add(self.tab_informed, text="Ch2: Informed")
         self.notebook.add(self.tab_local, text="Ch3: Local")
         self.notebook.add(self.tab_complex, text="Ch4: Complex")
         self.notebook.add(self.tab_csp, text="Ch5: CSP")
+        self.notebook.add(self.tab_adversarial, text="Ch6: Adversarial")
 
         self.cb_uninformed = ttk.Combobox(self.tab_uninformed, state="readonly", font=('Fixedsys', 12), width=50)
         self.cb_uninformed['values'] = [
@@ -247,11 +258,21 @@ class MainWindow:
         self.cb_csp = ttk.Combobox(self.tab_csp, state="readonly", font=('Fixedsys', 12), width=50)
         self.cb_csp['values'] = [
             "Backtracking Search (8-Puzzle CSP)",
-            "Backtracking + Forward Checking (8-Puzzle CSP)"
+            "Backtracking + Forward Checking (8-Puzzle CSP)",
+            "AC-3 Search (8-Puzzle CSP)",
+            "Min-Conflicts Search (8-Puzzle CSP)"
         ]
         self.cb_csp.current(0)
         self.cb_csp.pack(anchor=tk.W, padx=15, pady=15)
         self.cb_csp.bind("<<ComboboxSelected>>", lambda e: self.reset_environment())
+
+        self.cb_adversarial = ttk.Combobox(self.tab_adversarial, state="readonly", font=('Fixedsys', 12), width=50)
+        self.cb_adversarial['values'] = [
+            "Minimax Search (Tic-Tac-Toe Demo)"
+        ]
+        self.cb_adversarial.current(0)
+        self.cb_adversarial.pack(anchor=tk.W, padx=15, pady=15)
+        self.cb_adversarial.bind("<<ComboboxSelected>>", lambda e: self.reset_environment())
 
         # --- SHARED WORKSPACE DISPLAY PANELS ---
         self.frontier_frame = tk.Frame(self.right_container, bg=BG_MAIN, pady=5)
@@ -384,6 +405,10 @@ class MainWindow:
         name = algo_name if algo_name is not None else self.get_current_algo_name()
         return "observation" in name or "observable" in name
 
+    def is_adversarial_algorithm(self, algo_name=None):
+        name = algo_name if algo_name is not None else self.get_current_algo_name()
+        return "Minimax" in name
+
     def get_complex_initial_belief(self, algo_name):
         if self.manual_belief_input and len(self.initial_belief_states) > 1:
             return list(self.initial_belief_states)
@@ -428,6 +453,222 @@ class MainWindow:
             canvas.create_text(x, y - 12 + index * 20, text=line, fill=TEXT_MAIN, font=("Consolas", 13, "bold"))
         if subtitle:
             canvas.create_text(x, y + 45, text=subtitle, fill=TEXT_MUTED, font=("Fixedsys", 8))
+
+    def draw_tictactoe_node(self, canvas, x, y, node, active_node_id=None, best_path_ids=None):
+        best_path_ids = best_path_ids or []
+        width, height = 92, 112
+        is_active = node["id"] == active_node_id
+        is_on_best_path = node["id"] in best_path_ids
+        role = "MAX" if node["player"] == "X" else "MIN"
+
+        fill = "#26344d" if role == "MAX" else "#3b2f1f"
+        outline = ACCENT_BLUE if role == "MAX" else ACCENT_ORANGE
+        if node["is_terminal"]:
+            outline = ACCENT_GREEN if node["value"] == 10 else ACCENT_RED if node["value"] == -10 else HIGHLIGHT_GOLD
+        if is_on_best_path:
+            outline = ACCENT_GREEN
+        if is_active:
+            outline = HIGHLIGHT_GOLD
+
+        canvas.create_rectangle(
+            x - width // 2,
+            y - height // 2,
+            x + width // 2,
+            y + height // 2,
+            fill=fill,
+            outline=outline,
+            width=4 if is_active or is_on_best_path else 2
+        )
+        label = f"N{node['id']} {role}"
+        if node["move"]:
+            label += f" m{node['move']}"
+        canvas.create_text(x, y - 45, text=label, fill=TEXT_MAIN, font=("Fixedsys", 8, "bold"))
+
+        cell = 22
+        start_x = x - cell * 3 // 2
+        start_y = y - 29
+        for row in range(3):
+            for col in range(3):
+                idx = row * 3 + col
+                x1 = start_x + col * cell
+                y1 = start_y + row * cell
+                x2 = x1 + cell
+                y2 = y1 + cell
+                canvas.create_rectangle(x1, y1, x2, y2, fill="#1e293b", outline="#64748b", width=1)
+                mark = node["board"][idx]
+                if mark:
+                    color = ACCENT_BLUE if mark == "X" else ACCENT_ORANGE
+                    canvas.create_text((x1 + x2) // 2, (y1 + y2) // 2, text=mark, fill=color, font=("Consolas", 12, "bold"))
+
+        value = "?" if node["value"] is None else node["value"]
+        canvas.create_text(x, y + 43, text=f"value = {value}", fill=HIGHLIGHT_GOLD, font=("Fixedsys", 8, "bold"))
+
+    def get_minimax_move_path(self, node, node_by_id):
+        moves = []
+        current = node
+        while current and current["parent_id"] is not None:
+            moves.append(current["move"])
+            current = node_by_id.get(current["parent_id"])
+        return tuple(reversed(moves))
+
+    def get_minimax_demo_positions(self, nodes, node_by_id):
+        layout = {
+            (): (560, 320),
+            (7,): (250, 500),
+            (8,): (560, 500),
+            (9,): (870, 500),
+            (7, 8): (160, 690),
+            (7, 9): (340, 690),
+            (7, 9, 8): (340, 875),
+            (8, 7): (470, 690),
+            (8, 7, 9): (470, 875),
+            (8, 9): (650, 690),
+            (8, 9, 7): (650, 875),
+        }
+        positions = {}
+        for node in nodes:
+            path = self.get_minimax_move_path(node, node_by_id)
+            positions[node["id"]] = layout.get(path, (120 + len(positions) * 120, 320 + node["depth"] * 185))
+        return positions
+
+    def get_minimax_step_explanation(self, snapshot, node_by_id):
+        event_kind = snapshot.get("event_kind", "start")
+        active_node = node_by_id.get(snapshot.get("active_node_id"))
+        active_child = node_by_id.get(snapshot.get("active_child_id"))
+
+        if event_kind == "visit" and active_node:
+            role = "MAX" if active_node["player"] == "X" else "MIN"
+            return (
+                "1. VISIT",
+                f"Thuật toán đi xuống Node {active_node['id']} ({role}) để xét trạng thái bàn cờ này."
+            )
+        if event_kind == "terminal" and active_node:
+            return (
+                "2. TERMINAL",
+                f"Node {active_node['id']} là lá: tính utility ngay. X thắng=+10, hòa=0, O thắng=-10."
+            )
+        if event_kind == "return" and active_node and active_child:
+            value = "?" if active_child["value"] is None else active_child["value"]
+            return (
+                "3. RETURN VALUE",
+                f"Node {active_child['id']} đã có value={value}, trả ngược kết quả này về Node {active_node['id']}."
+            )
+        if event_kind == "choose" and active_node:
+            role = "MAX" if active_node["player"] == "X" else "MIN"
+            child_values = []
+            for child_id in active_node["children"]:
+                child = node_by_id[child_id]
+                child_value = "?" if child["value"] is None else child["value"]
+                child_values.append(f"N{child_id}:{child_value}")
+            rule = "lấy giá trị lớn nhất" if role == "MAX" else "lấy giá trị nhỏ nhất"
+            return (
+                "4. CHOOSE",
+                f"Node {active_node['id']} là {role}, nên {rule} trong [{', '.join(child_values)}]."
+            )
+        if event_kind == "success":
+            return (
+                "DONE",
+                "Root đã có value cuối cùng. Đường xanh là nước đi tối ưu nếu cả hai bên chơi tốt nhất."
+            )
+        return (
+            "START",
+            "Bấm Next Step: Minimax sẽ đi xuống các lá trước, sau đó truyền utility ngược lên gốc."
+        )
+
+    def draw_minimax_tree(self, snapshot):
+        canvas = self.and_or_tree_canvas
+        old_x = canvas.xview()[0] if canvas.xview() else 0
+        old_y = canvas.yview()[0] if canvas.yview() else 0
+        canvas.delete("all")
+        self.set_tree_scrollbars_visible(horizontal=True, vertical=True)
+
+        nodes = snapshot.get("nodes", []) if snapshot else []
+        if not nodes:
+            canvas.create_text(440, 240, text="Bấm Next Step để chạy Minimax.", fill=TEXT_MUTED, font=("Fixedsys", 15, "bold"))
+            canvas.configure(scrollregion=(0, 0, 900, 520))
+            return
+
+        node_by_id = {node["id"]: node for node in nodes}
+        levels = {}
+        for node in nodes:
+            levels.setdefault(node["depth"], []).append(node)
+
+        positions = self.get_minimax_demo_positions(nodes, node_by_id)
+
+        active_node_id = snapshot.get("active_node_id")
+        active_child_id = snapshot.get("active_child_id")
+        best_path_ids = snapshot.get("best_path_ids", [])
+        step_title, step_detail = self.get_minimax_step_explanation(snapshot, node_by_id)
+        view_width = max(760, canvas.winfo_width())
+        content_width = max(1120, view_width)
+        text_width = max(640, min(1040, view_width - 60))
+
+        canvas.create_rectangle(0, 0, content_width, 245, fill=BG_PANEL, outline="#334155", width=2)
+        canvas.create_text(
+            20,
+            18,
+            anchor=tk.W,
+            text="MINIMAX TREE",
+            fill=HIGHLIGHT_GOLD,
+            font=("Fixedsys", 12, "bold")
+        )
+        canvas.create_text(
+            20,
+            43,
+            anchor=tk.W,
+            text="MAX = X chọn giá trị lớn nhất  |  MIN = O chọn giá trị nhỏ nhất  |  move k = đánh vào ô k",
+            fill=HIGHLIGHT_GOLD,
+            font=("Fixedsys", 10, "bold"),
+            width=text_width
+        )
+        canvas.create_text(20, 72, anchor=tk.W, text=snapshot.get("message", ""), fill=TEXT_MUTED, font=("Fixedsys", 10), width=text_width)
+        canvas.create_text(
+            20,
+            100,
+            anchor=tk.W,
+            text="Utility: X thắng = +10, hòa = 0, O thắng = -10. Value chỉ xuất hiện sau khi node lá được xét.",
+            fill=ACCENT_BLUE,
+            font=("Fixedsys", 9, "bold"),
+            width=text_width
+        )
+        canvas.create_rectangle(20, 125, view_width - 25, 170, fill="#0f172a", outline="#475569", width=1)
+        canvas.create_text(34, 140, anchor=tk.W, text=step_title, fill=HIGHLIGHT_GOLD, font=("Fixedsys", 10, "bold"))
+        canvas.create_text(160, 140, anchor=tk.W, text=step_detail, fill=TEXT_MAIN, font=("Fixedsys", 9), width=max(460, view_width - 220))
+
+        canvas.create_rectangle(20, 180, view_width - 25, 230, fill="#0f172a", outline="#475569", width=1)
+        canvas.create_text(34, 195, anchor=tk.W, text="Cách đọc node", fill=ACCENT_GREEN, font=("Fixedsys", 10, "bold"))
+        canvas.create_text(190, 195, anchor=tk.W, text="N7 MAX m7 = node 7, lượt X, vừa đánh ô 7", fill=TEXT_MUTED, font=("Fixedsys", 8), width=max(320, view_width - 230))
+        canvas.create_text(190, 215, anchor=tk.W, text="value=? là chưa biết; viền xanh là đường tối ưu sau khi xong", fill=TEXT_MUTED, font=("Fixedsys", 8), width=max(320, view_width - 230))
+
+        for node in nodes:
+            parent_id = node["parent_id"]
+            if parent_id is None:
+                continue
+            x1, y1 = positions[parent_id]
+            x2, y2 = positions[node["id"]]
+            parent = node_by_id[parent_id]
+            edge_color = ACCENT_BLUE if parent["player"] == "X" else ACCENT_RED
+            if parent_id in best_path_ids and node["id"] in best_path_ids:
+                edge_color = ACCENT_GREEN
+            width = 4 if edge_color == ACCENT_GREEN or node["id"] == active_child_id else 2
+            if node["id"] == active_child_id:
+                edge_color = HIGHLIGHT_GOLD
+            canvas.create_line(x1, y1 + 58, x2, y2 - 58, fill=edge_color, width=width, arrow=tk.LAST)
+            canvas.create_text((x1 + x2) // 2, (y1 + y2) // 2 - 8, text=f"move {node['move']}", fill=edge_color, font=("Fixedsys", 7, "bold"))
+
+        for node in nodes:
+            x, y = positions[node["id"]]
+            self.draw_tictactoe_node(canvas, x, y, node, active_node_id, best_path_ids)
+
+        scroll_w = content_width
+        scroll_h = 1010
+        canvas.configure(scrollregion=(0, 0, scroll_w, scroll_h))
+        if snapshot.get("event_kind") == "start":
+            canvas.xview_moveto(0)
+            canvas.yview_moveto(0)
+        else:
+            canvas.xview_moveto(old_x)
+            canvas.yview_moveto(old_y)
 
     def draw_and_or_tree(self, tree_snapshot):
         canvas = self.and_or_tree_canvas
@@ -684,17 +925,35 @@ class MainWindow:
 
         assignment = snapshot.get("assignment", {})
         selected_var = snapshot.get("selected_var")
+        peer_var = snapshot.get("peer_var")
         trying_value = snapshot.get("trying_value")
         stage = snapshot.get("stage", "start")
         variables = snapshot.get("variables", [])
         fixed_values = snapshot.get("fixed_values", {})
         current_domains = snapshot.get("current_domains", snapshot.get("domains", {}))
+        current_arc = snapshot.get("current_arc")
+        removed_values = snapshot.get("removed_values", [])
+        queue_preview = snapshot.get("queue_preview", [])
+        queue_size = snapshot.get("queue_size", 0)
+        conflicted_vars = snapshot.get("conflicted_vars", [])
+        candidate_scores = snapshot.get("candidate_scores", {})
+        total_conflicts = snapshot.get("total_conflicts")
+        local_step = snapshot.get("local_step", 0)
+        max_steps = snapshot.get("max_steps", 0)
+        is_ac3 = "AC-3" in self.get_current_algo_name()
+        is_min_conflicts = "Min-Conflicts" in self.get_current_algo_name()
 
         canvas.create_text(
             20,
             18,
             anchor=tk.W,
-            text="CSP BACKTRACKING SEARCH  |  8-Puzzle Cell Assignment",
+            text=(
+                "AC-3 ARC CONSISTENCY  |  8-Puzzle CSP"
+                if is_ac3
+                else "MIN-CONFLICTS LOCAL SEARCH  |  8-Puzzle CSP"
+                if is_min_conflicts
+                else "CSP BACKTRACKING SEARCH  |  8-Puzzle Cell Assignment"
+            ),
             fill=HIGHLIGHT_GOLD,
             font=("Fixedsys", 12, "bold")
         )
@@ -724,12 +983,27 @@ class MainWindow:
             fill = "#26344d"
             outline = HIGHLIGHT_GOLD if var == selected_var else TEXT_MUTED
             width = 5 if var == selected_var else 2
+            if is_min_conflicts and var in conflicted_vars:
+                outline = ACCENT_RED
+                width = 4
+            if is_min_conflicts and var == selected_var:
+                outline = HIGHLIGHT_GOLD
+                fill = "#3b2f1f"
+                width = 5
+            if is_ac3 and var == peer_var:
+                outline = ACCENT_BLUE
+                width = 4
             if var == selected_var and trying_value is not None and stage == "reject":
                 outline = ACCENT_RED
                 fill = "#3b1f2a"
             elif var == selected_var and trying_value is not None and stage in ["consistent", "success"]:
                 outline = ACCENT_GREEN
                 fill = "#1f3a2d"
+            elif is_ac3 and var == selected_var and removed_values:
+                outline = ACCENT_RED
+                fill = "#3b1f2a"
+            elif is_ac3 and var == selected_var:
+                outline = HIGHLIGHT_GOLD
 
             canvas.create_rectangle(x1, y1, x2, y2, fill=fill, outline=outline, width=width)
             canvas.create_text(x1 + 16, y1 + 14, text=var, fill=TEXT_MUTED, font=("Fixedsys", 9, "bold"))
@@ -740,13 +1014,44 @@ class MainWindow:
         canvas.create_text(domain_x, 92, anchor=tk.W, text="Domain of each xi", fill=ACCENT_BLUE, font=("Fixedsys", 13, "bold"))
         canvas.create_text(domain_x, 125, anchor=tk.W, text="{0, 1, 2, 3, 4, 5, 6, 7, 8}", fill=TEXT_MAIN, font=("Consolas", 12, "bold"))
         domain_order = snapshot.get("domain_order", [])
-        random_order_text = f"Random order: {domain_order}" if domain_order else "Random order: waiting for SELECT"
+        if is_ac3:
+            arc_text = f"Current arc: {current_arc}" if current_arc else "Current arc: waiting"
+            random_order_text = arc_text
+        elif is_min_conflicts:
+            random_order_text = f"Local step: {local_step}/{max_steps} | total conflicts = {total_conflicts}"
+        else:
+            random_order_text = f"Random order: {domain_order}" if domain_order else "Random order: waiting for SELECT"
         canvas.create_text(domain_x, 155, anchor=tk.W, text=random_order_text, fill=HIGHLIGHT_GOLD, font=("Consolas", 10, "bold"))
 
-        canvas.create_text(domain_x, 205, anchor=tk.W, text="Constraints C", fill=ACCENT_GREEN, font=("Fixedsys", 13, "bold"))
-        canvas.create_text(domain_x, 235, anchor=tk.W, text="1. Each xi has exactly one value.", fill=TEXT_MAIN, font=("Fixedsys", 10))
-        canvas.create_text(domain_x, 262, anchor=tk.W, text="2. All xi values are different.", fill=TEXT_MAIN, font=("Fixedsys", 10))
-        canvas.create_text(domain_x, 289, anchor=tk.W, text="3. xi must match its goal cell.", fill=TEXT_MAIN, font=("Fixedsys", 10))
+        if is_ac3:
+            canvas.create_text(domain_x, 205, anchor=tk.W, text="AC-3 Queue + Revision", fill=ACCENT_GREEN, font=("Fixedsys", 13, "bold"))
+            canvas.create_text(domain_x, 235, anchor=tk.W, text=f"Queue size: {queue_size}", fill=TEXT_MAIN, font=("Fixedsys", 10))
+            removed_text = f"Removed from D({selected_var}): {removed_values}" if selected_var else "Removed: []"
+            canvas.create_text(domain_x, 262, anchor=tk.W, text=removed_text, fill=ACCENT_RED if removed_values else TEXT_MUTED, font=("Fixedsys", 10))
+            queue_text = ", ".join(str(arc) for arc in queue_preview[:4])
+            if len(queue_preview) > 4:
+                queue_text += f", ... +{len(queue_preview) - 4}"
+            canvas.create_text(domain_x, 289, anchor=tk.W, text=f"Next arcs: {queue_text if queue_text else '[]'}", fill=TEXT_MUTED, font=("Fixedsys", 9))
+        elif is_min_conflicts:
+            canvas.create_text(domain_x, 205, anchor=tk.W, text="Min-Conflicts Repair", fill=ACCENT_GREEN, font=("Fixedsys", 13, "bold"))
+            canvas.create_text(domain_x, 235, anchor=tk.W, text=f"Conflicted vars: {conflicted_vars}", fill=ACCENT_RED if conflicted_vars else ACCENT_GREEN, font=("Fixedsys", 10))
+            if stage == "evaluate_conflict":
+                chosen_text = f"Testing: {selected_var} = {trying_value}"
+            elif stage == "select_conflicted":
+                chosen_text = f"Selected var: {selected_var}; evaluating D({selected_var})"
+            elif selected_var:
+                chosen_text = f"Set: {selected_var} = {trying_value}"
+            else:
+                chosen_text = "Selected var: waiting"
+            canvas.create_text(domain_x, 262, anchor=tk.W, text=chosen_text, fill=HIGHLIGHT_GOLD, font=("Fixedsys", 10))
+            score_items = sorted(candidate_scores.items(), key=lambda item: item[0])
+            score_text = ", ".join(f"{value}:{score}" for value, score in score_items[:9])
+            canvas.create_text(domain_x, 289, anchor=tk.W, text=f"CONFLICTS(v): {score_text if score_text else 'waiting'}", fill=TEXT_MUTED, font=("Consolas", 9, "bold"))
+        else:
+            canvas.create_text(domain_x, 205, anchor=tk.W, text="Constraints C", fill=ACCENT_GREEN, font=("Fixedsys", 13, "bold"))
+            canvas.create_text(domain_x, 235, anchor=tk.W, text="1. Each xi has exactly one value.", fill=TEXT_MAIN, font=("Fixedsys", 10))
+            canvas.create_text(domain_x, 262, anchor=tk.W, text="2. All xi values are different.", fill=TEXT_MAIN, font=("Fixedsys", 10))
+            canvas.create_text(domain_x, 289, anchor=tk.W, text="3. xi must match its goal cell.", fill=TEXT_MAIN, font=("Fixedsys", 10))
 
         canvas.create_text(domain_x, 330, anchor=tk.W, text="Assignment + Current Domains", fill=HIGHLIGHT_GOLD, font=("Fixedsys", 13, "bold"))
         for idx, var in enumerate(variables):
@@ -768,7 +1073,13 @@ class MainWindow:
             20,
             565,
             anchor=tk.W,
-            text="CSP formulation: X = {x1...x9}, D = {0...8}, C = all-different + fixed goal-cell constraints.",
+            text=(
+                "AC-3 formulation: queue = all directed arcs (Xi, Xj); revise removes values with no support."
+                if is_ac3
+                else "Min-Conflicts formulation: start complete, pick conflicted var, set value with minimum conflicts."
+                if is_min_conflicts
+                else "CSP formulation: X = {x1...x9}, D = {0...8}, C = all-different + fixed goal-cell constraints."
+            ),
             fill=TEXT_MUTED,
             font=("Fixedsys", 10)
         )
@@ -785,10 +1096,28 @@ class MainWindow:
 
         assignment = snapshot.get("assignment", {}) if snapshot else {}
         assigned_count = len(assignment)
-        self.lbl_stats.config(
-            text=f"Step: {self.step_count} | Assigned: {assigned_count}/9 | Stage: {snapshot.get('stage', 'N/A') if snapshot else 'N/A'}",
-            fg=TEXT_MUTED
-        )
+        if "AC-3" in self.get_current_algo_name() and snapshot:
+            arc = snapshot.get("current_arc") or "waiting"
+            queue_size = snapshot.get("queue_size", 0)
+            removed = snapshot.get("removed_values", [])
+            self.lbl_stats.config(
+                text=f"Step: {self.step_count} | Arc: {arc} | Queue: {queue_size} | Removed: {removed}",
+                fg=TEXT_MUTED
+            )
+        elif "Min-Conflicts" in self.get_current_algo_name() and snapshot:
+            local_step = snapshot.get("local_step", 0)
+            max_steps = snapshot.get("max_steps", 0)
+            conflicts = snapshot.get("total_conflicts", 0)
+            selected_var = snapshot.get("selected_var") or "waiting"
+            self.lbl_stats.config(
+                text=f"Step: {local_step}/{max_steps} | Conflicts: {conflicts} | Selected: {selected_var}",
+                fg=TEXT_MUTED
+            )
+        else:
+            self.lbl_stats.config(
+                text=f"Step: {self.step_count} | Assigned: {assigned_count}/9 | Stage: {snapshot.get('stage', 'N/A') if snapshot else 'N/A'}",
+                fg=TEXT_MUTED
+            )
 
         if data["status"] == "failure":
             self.btn_next.config(state=tk.DISABLED)
@@ -802,7 +1131,12 @@ class MainWindow:
         if data["status"] == "success":
             self.btn_next.config(state=tk.DISABLED)
             self.btn_auto.config(state=tk.DISABLED)
-            self.lbl_stats.config(text="CSP SOLVED: COMPLETE 8-PUZZLE CELL ASSIGNMENT", fg=ACCENT_GREEN)
+            if "AC-3" in self.get_current_algo_name():
+                self.lbl_stats.config(text="AC-3 DONE: QUEUE EMPTY, DOMAINS ARE ARC-CONSISTENT", fg=ACCENT_GREEN)
+            elif "Min-Conflicts" in self.get_current_algo_name():
+                self.lbl_stats.config(text="MIN-CONFLICTS SOLVED: NO CONFLICT REMAINS", fg=ACCENT_GREEN)
+            else:
+                self.lbl_stats.config(text="CSP SOLVED: COMPLETE 8-PUZZLE CELL ASSIGNMENT", fg=ACCENT_GREEN)
             self.solution_path = []
             self.path_listbox.delete(0, tk.END)
 
@@ -869,6 +1203,7 @@ class MainWindow:
         if tab_idx == 2: return self.cb_local.get()
         if tab_idx == 3: return self.cb_complex.get()
         if tab_idx == 4: return self.cb_csp.get()
+        if tab_idx == 5: return self.cb_adversarial.get()
         return ""
 
     def on_tab_changed(self, event):
@@ -894,7 +1229,12 @@ class MainWindow:
             pass
 
         selected_algo_name = self.get_current_algo_name()
-        if "AND-OR" not in selected_algo_name and not self.is_belief_algorithm(selected_algo_name):
+        can_replay = (
+            "AND-OR" in selected_algo_name
+            or self.is_belief_algorithm(selected_algo_name)
+            or self.is_csp_algorithm(selected_algo_name)
+        )
+        if not can_replay:
             return None
 
         replay_solver = self.create_solver_for_current_selection()
@@ -925,17 +1265,28 @@ class MainWindow:
         selected_algo_name = self.get_current_algo_name()
         is_csp = self.is_csp_algorithm(selected_algo_name)
         is_belief = self.is_belief_algorithm(selected_algo_name)
+        is_adversarial = self.is_adversarial_algorithm(selected_algo_name)
         self.lbl_initial_title.config(text="CUSTOM INITIAL BOARD (OPTIONAL)" if is_belief else "CUSTOM INITIAL BOARD")
-        self.set_and_or_tree_visible("AND-OR" in selected_algo_name or is_csp or is_belief)
-        self.set_frontier_strip_visible(not ("AND-OR" in selected_algo_name or is_csp or is_belief))
+        self.set_and_or_tree_visible("AND-OR" in selected_algo_name or is_csp or is_belief or is_adversarial)
+        self.set_frontier_strip_visible(not ("AND-OR" in selected_algo_name or is_csp or is_belief or is_adversarial))
         
         self.solver = self.create_solver_for_current_selection()
 
         self.txt_docs.delete("1.0", tk.END)
         
-        if is_csp:
+        if is_adversarial:
+            self.lbl_frontier_title.config(text="Game Tree:")
+            self.txt_docs.insert("1.0", self.algo_docs["Minimax"])
+        elif is_csp:
             self.lbl_frontier_title.config(text="CSP Assignment:")
-            doc_key = "Forward Checking CSP" if "Forward Checking" in selected_algo_name else "Backtracking CSP"
+            if "AC-3" in selected_algo_name:
+                doc_key = "AC-3 CSP"
+            elif "Min-Conflicts" in selected_algo_name:
+                doc_key = "Min-Conflicts CSP"
+            elif "Forward Checking" in selected_algo_name:
+                doc_key = "Forward Checking CSP"
+            else:
+                doc_key = "Backtracking CSP"
             self.txt_docs.insert("1.0", self.algo_docs[doc_key])
         elif "AND-OR" in selected_algo_name or is_belief: 
             if "AND-OR" in selected_algo_name:
@@ -981,6 +1332,13 @@ class MainWindow:
             elif "Greedy" in selected_algo_name: self.txt_docs.insert("1.0", self.algo_docs["Greedy"])
             elif "IDA*" in selected_algo_name: self.txt_docs.insert("1.0", self.algo_docs["IDA*"])
             elif "A*" in selected_algo_name: self.txt_docs.insert("1.0", self.algo_docs["A*"])
+
+        if is_adversarial:
+            self.draw_minimax_tree(self.solver.initial_snapshot())
+            self.lbl_stats.config(text="Steps: 0 | Root: MAX | Utility: waiting", fg=TEXT_MUTED)
+            self.ui_history = []
+            self.btn_prev.config(state=tk.DISABLED)
+            return
 
         if is_csp:
             self.draw_csp_state(self.solver.initial_snapshot())
@@ -1076,6 +1434,9 @@ class MainWindow:
         self.btn_auto.config(state=tk.NORMAL)
 
     def track_current_path(self, data):
+        if self.is_adversarial_algorithm():
+            return
+
         self.current_path_listbox.delete(0, tk.END)
         if data is None or "current" not in data or data.get("status") in ["success", "failure"]:
             return
@@ -1284,11 +1645,69 @@ class MainWindow:
                     move_str += f"  |B|={len(node.boards)}"
                 self.path_listbox.insert(tk.END, move_str)
 
+    def update_minimax_ui(self, data):
+        snapshot = data.get("minimax_snapshot")
+        self.draw_minimax_tree(snapshot)
+        self.clear_neighbors()
+        for bw in self.frontier_boards:
+            bw.update_board(None)
+
+        active_node_id = snapshot.get("active_node_id")
+        event_kind = snapshot.get("event_kind", "start")
+        active_node = None
+        for node in snapshot.get("nodes", []):
+            if node["id"] == active_node_id:
+                active_node = node
+                break
+
+        self.current_path_listbox.delete(0, tk.END)
+        self.current_path_listbox.insert(tk.END, f"Event: {event_kind}")
+        self.current_path_listbox.insert(tk.END, snapshot.get("message", ""))
+        if active_node:
+            role = "MAX" if active_node["player"] == "X" else "MIN"
+            value = "?" if active_node["value"] is None else active_node["value"]
+            self.current_path_listbox.insert(tk.END, f"Node {active_node_id}: {role}, value={value}")
+
+        root_value = "?"
+        for node in snapshot.get("nodes", []):
+            if node["id"] == snapshot.get("root_id"):
+                root_value = "?" if node["value"] is None else node["value"]
+                break
+
+        self.lbl_stats.config(
+            text=f"Step: {self.step_count} | Active Node: {active_node_id} | Root Utility: {root_value}",
+            fg=TEXT_MUTED
+        )
+
+        if data["status"] == "success":
+            self.btn_next.config(state=tk.DISABLED)
+            self.btn_auto.config(state=tk.DISABLED)
+            self.lbl_stats.config(text=f"MINIMAX DONE | Best utility for MAX = {root_value}", fg=ACCENT_GREEN)
+            self.path_listbox.delete(0, tk.END)
+            self.solution_path = []
+
+            nodes_by_id = {node["id"]: node for node in snapshot.get("nodes", [])}
+            for idx, node_id in enumerate(snapshot.get("best_path_ids", [])):
+                node = nodes_by_id[node_id]
+                role = "MAX" if node["player"] == "X" else "MIN"
+                move = "ROOT" if node["move"] is None else f"move {node['move']}"
+                value = "?" if node["value"] is None else node["value"]
+                text = f"Step {idx:02d}: Node {node_id} | {role} | {move} | value={value}"
+                self.path_listbox.insert(tk.END, text)
+                selected_snapshot = copy.deepcopy(snapshot)
+                selected_snapshot["active_node_id"] = node_id
+                selected_snapshot["active_child_id"] = None
+                self.solution_path.append({"text": text, "minimax_snapshot": selected_snapshot})
+
     def update_ui_from_state(self, data):
         if data is None:
             return
 
         current_algo = self.get_current_algo_name()
+        if self.is_adversarial_algorithm(current_algo):
+            self.update_minimax_ui(data)
+            return
+
         if "AND-OR" in current_algo:
             self.draw_and_or_tree(data.get("tree_snapshot"))
 
@@ -1436,6 +1855,10 @@ class MainWindow:
             index = selection[0]
             selected_node = self.solution_path[index]
             if isinstance(selected_node, dict):
+                if "minimax_snapshot" in selected_node:
+                    self.draw_minimax_tree(selected_node["minimax_snapshot"])
+                    return
+
                 if "csp_snapshot" in selected_node:
                     self.draw_csp_state(selected_node["csp_snapshot"])
                     return
