@@ -84,18 +84,22 @@ class SteepestAscentHillClimbingSolver:
 
         children_info = {}
         all_successors = []
+        candidates = []
         best_node = None
+        best_move = None
         min_h = float('inf') # Đặt min ban đầu là vô cùng lớn
         
         for move, m_board in self.get_successors(current_node):
             h_m = self.calculate_manhattan(m_board)
             m_node = SAHCNode(m_board, parent=current_node, move=move, h=h_m)
             all_successors.append((move, m_node))
+            candidates.append({"move": move, "h": h_m, "marker": ""})
             
             # Tìm lân cận có h nhỏ nhất
             if h_m < min_h:
                 min_h = h_m
                 best_node = m_node
+                best_move = move
 
         if min_h < current_node.h:
             # Nếu tốt hơn -> Chấp nhận best_node
@@ -107,10 +111,22 @@ class SteepestAscentHillClimbingSolver:
                     children_info[move] = {"node": m_node, "type": "new"}
                 else:
                     children_info[move] = {"node": m_node, "type": "reached"}
+            for item in candidates:
+                item["marker"] = " <- best" if item["move"] == best_move else ""
+            selected_move = best_move
+            selected_h = min_h
+            accepted = True
+            reason = "Steepest-Ascent sinh toàn bộ neighbor, so sánh h(n), rồi chọn neighbor có h nhỏ nhất."
         else:
             # Nếu không có thằng nào tốt hơn -> Đạt cực đại cục bộ, từ chối TẤT CẢ
             for move, m_node in all_successors:
                 children_info[move] = {"node": m_node, "type": "reached"}
+            for item in candidates:
+                item["marker"] = " not better"
+            selected_move = None
+            selected_h = None
+            accepted = False
+            reason = "Neighbor tốt nhất vẫn không có h nhỏ hơn current, nên thuật toán dừng ở local maximum."
 
         return {
             "status": "running",
@@ -118,5 +134,15 @@ class SteepestAscentHillClimbingSolver:
             "children_info": children_info,
             "frontier_preview": [n.board for n in self.frontier],
             "reached_count": 0,
-            "frontier_count": len(self.frontier)
+            "frontier_count": len(self.frontier),
+            "local_decision": {
+                "algo": "Steepest-Ascent Hill Climbing",
+                "current_h": current_node.h,
+                "selected_move": selected_move,
+                "selected_h": selected_h,
+                "accepted": accepted,
+                "stuck": not accepted,
+                "candidates": candidates,
+                "reason": reason
+            }
         }

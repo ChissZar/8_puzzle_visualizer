@@ -86,12 +86,17 @@ class RandomRestartHillClimbingSolver:
         children_info = {}
         all_successors = []
         better_neighbors = []
+        candidates = []
+        chosen_move = None
+        chosen_node = None
+        restarted = False
         
         # Sinh lân cận
         for move, m_board in self.get_successors(current_node):
             h_m = self.calculate_manhattan(m_board)
             m_node = RRHCNode(m_board, parent=current_node, move=move, h=h_m)
             all_successors.append((move, m_node))
+            candidates.append({"move": move, "h": h_m, "marker": ""})
             
             # Lọc ra các lân cận tốt hơn (h nhỏ hơn)
             if h_m < current_node.h:
@@ -101,6 +106,7 @@ class RandomRestartHillClimbingSolver:
         if not better_neighbors:
             if self.restart_count < self.max_restart:
                 self.restart_count += 1
+                restarted = True
                 
                 # QUAY VỀ VẠCH XUẤT PHÁT: Nạp lại đúng initial_node vào Frontier
                 self.frontier.append(self.initial_node)
@@ -111,6 +117,14 @@ class RandomRestartHillClimbingSolver:
             else:
                 for move, m_node in all_successors:
                     children_info[move] = {"node": m_node, "type": "reached"}
+            for item in candidates:
+                item["marker"] = " not better"
+            accepted = False
+            reason = (
+                "Không có better neighbor nên restart về initial board để thử lại."
+                if restarted
+                else "Không có better neighbor và đã hết số lần restart cho phép."
+            )
         else:
             # Nếu còn đường đi tốt, bốc Random 1 hướng như Stochastic HC
             chosen_move, chosen_node = random.choice(better_neighbors)
@@ -121,6 +135,16 @@ class RandomRestartHillClimbingSolver:
                     children_info[move] = {"node": m_node, "type": "new"}
                 else:
                     children_info[move] = {"node": m_node, "type": "reached"}
+            better_moves = {move for move, _ in better_neighbors}
+            for item in candidates:
+                if item["move"] == chosen_move:
+                    item["marker"] = " <- random pick"
+                elif item["move"] in better_moves:
+                    item["marker"] = " better"
+                else:
+                    item["marker"] = " rejected"
+            accepted = True
+            reason = "Còn better neighbor nên chọn ngẫu nhiên một hướng tốt hơn; chưa cần restart."
 
         return {
             "status": "running",
@@ -129,5 +153,18 @@ class RandomRestartHillClimbingSolver:
             "frontier_preview": [n.board for n in self.frontier],
             "reached_count": 0,
             "frontier_count": len(better_neighbors),
-            "restart_count": self.restart_count # Gửi số lần restart lên UI
+            "restart_count": self.restart_count, # Gửi số lần restart lên UI
+            "local_decision": {
+                "algo": "Random Restart Hill Climbing",
+                "current_h": current_node.h,
+                "selected_move": chosen_move,
+                "selected_h": chosen_node.h if chosen_node else None,
+                "accepted": accepted,
+                "stuck": not accepted,
+                "better_count": len(better_neighbors),
+                "restart_count": self.restart_count,
+                "max_restart": self.max_restart,
+                "candidates": candidates,
+                "reason": reason
+            }
         }

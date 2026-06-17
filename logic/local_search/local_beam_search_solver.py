@@ -48,6 +48,8 @@ class LocalBeamSearchSolver:
     def step(self):
         if self.is_finished:
             return None
+        new_generation = False
+        selected_generation = []
             
         if not self.frontier:
             if not self.next_beam_candidates:
@@ -61,8 +63,10 @@ class LocalBeamSearchSolver:
             
             # Cập nhật chùm mới và LƯU LẠI BẢN SAO vào current_beam
             self.frontier = self.next_beam_candidates[:self.k]
+            selected_generation = list(self.frontier)
             self.current_beam = list(self.frontier) 
             self.next_beam_candidates = [] 
+            new_generation = True
 
         self.current_node = self.frontier.pop(0)
         current_node = self.current_node
@@ -88,17 +92,21 @@ class LocalBeamSearchSolver:
             }
 
         children_info = {}
+        candidates = []
         
         for move, m_board in self.get_successors(current_node):
             h_m = self.calculate_manhattan(m_board)
             m_node = LBSNode(m_board, parent=current_node, move=move, h=h_m)
+            candidates.append({"move": move, "h": h_m, "marker": ""})
             
             is_duplicate = any(c.board == m_node.board for c in self.next_beam_candidates)
             if not is_duplicate:
                 self.next_beam_candidates.append(m_node)
                 children_info[move] = {"node": m_node, "type": "new"} 
+                candidates[-1]["marker"] = " added"
             else:
                 children_info[move] = {"node": m_node, "type": "reached"} 
+                candidates[-1]["marker"] = " duplicate"
 
         # Ghép mảng: Chùm hiện tại + [1 Ô Trống] + Tập lân cận mới
         preview = [n.board for n in self.current_beam] + [None] + [n.board for n in self.next_beam_candidates]
@@ -110,5 +118,20 @@ class LocalBeamSearchSolver:
             "frontier_preview": preview,
             "reached_count": 0,
             "frontier_count": len(self.next_beam_candidates),
-            "beam_k": self.k 
+            "beam_k": self.k,
+            "local_decision": {
+                "algo": "Local Beam Search",
+                "current_h": current_node.h,
+                "selected_move": current_node.move,
+                "selected_h": current_node.h,
+                "accepted": True,
+                "beam_k": self.k,
+                "candidate_count": len(self.next_beam_candidates),
+                "candidates": candidates,
+                "reason": (
+                    f"Đã chọn top-{self.k} candidate tốt nhất để tạo beam mới, rồi đang mở rộng từng board trong beam."
+                    if new_generation
+                    else "Mở rộng một board trong current beam và gom neighbor vào candidate pool. Khi hết beam, chọn top-k theo h nhỏ nhất."
+                )
+            }
         }

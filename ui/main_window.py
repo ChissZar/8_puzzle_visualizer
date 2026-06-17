@@ -353,7 +353,29 @@ class MainWindow:
         self.current_path_listbox = tk.Listbox(self.path_container, font=('Fixedsys', 11), bg=BG_PANEL, fg=TEXT_MAIN, relief=tk.FLAT, height=15, highlightthickness=0)
         self.current_path_listbox.pack(fill=tk.X, pady=(0, 15))
 
-        tk.Label(self.path_container, text="Final Solution", fg=ACCENT_GREEN, bg=BG_MAIN, font=('Fixedsys', 12, 'bold')).pack(anchor=tk.W)
+        self.local_decision_frame = tk.Frame(self.path_container, bg="#0f172a", highlightbackground="#475569", highlightthickness=2, padx=12, pady=8)
+        self.local_decision_title = tk.Label(
+            self.local_decision_frame,
+            text="LOCAL SEARCH DECISION",
+            fg=HIGHLIGHT_GOLD,
+            bg="#0f172a",
+            font=("Fixedsys", 10, "bold")
+        )
+        self.local_decision_title.pack(anchor=tk.W)
+        self.local_decision_detail = tk.Label(
+            self.local_decision_frame,
+            text="",
+            fg=TEXT_MAIN,
+            bg="#0f172a",
+            justify=tk.LEFT,
+            anchor=tk.W,
+            font=("Fixedsys", 9),
+            wraplength=330
+        )
+        self.local_decision_detail.pack(anchor=tk.W, fill=tk.X, pady=(4, 0))
+
+        self.lbl_final_solution = tk.Label(self.path_container, text="Final Solution", fg=ACCENT_GREEN, bg=BG_MAIN, font=('Fixedsys', 12, 'bold'))
+        self.lbl_final_solution.pack(anchor=tk.W)
         self.path_listbox = tk.Listbox(self.path_container, font=('Fixedsys', 11), bg=BG_PANEL, fg=TEXT_MAIN, relief=tk.FLAT, highlightthickness=0)
         self.path_listbox.pack(fill=tk.BOTH, expand=True)
         self.path_listbox.bind('<<ListboxSelect>>', self.on_path_select)
@@ -408,6 +430,29 @@ class MainWindow:
     def is_adversarial_algorithm(self, algo_name=None):
         name = algo_name if algo_name is not None else self.get_current_algo_name()
         return "Minimax" in name
+
+    def is_local_search_algorithm(self, algo_name=None):
+        name = algo_name if algo_name is not None else self.get_current_algo_name()
+        return (
+            "Hill Climbing" in name
+            or "Beam Search" in name
+            or "Annealing" in name
+        )
+
+    def set_local_decision_visible(self, visible):
+        if visible:
+            self.expand_frame.place_configure(relx=0.5, rely=0.5, anchor=tk.CENTER)
+            self.local_decision_detail.config(wraplength=330)
+            if not self.local_decision_frame.winfo_manager():
+                self.local_decision_frame.pack(fill=tk.X, pady=(0, 15), before=self.lbl_final_solution)
+        else:
+            self.local_decision_frame.pack_forget()
+            if self.expand_frame.winfo_manager():
+                self.expand_frame.place_configure(relx=0.5, rely=0.5, anchor=tk.CENTER)
+
+    def reset_local_decision_panel(self, title="LOCAL SEARCH DECISION", detail="Bấm Next Step để xem thuật toán chọn trạng thái kế tiếp."):
+        self.local_decision_title.config(text=title, fg=HIGHLIGHT_GOLD)
+        self.local_decision_detail.config(text=detail)
 
     def get_complex_initial_belief(self, algo_name):
         if self.manual_belief_input and len(self.initial_belief_states) > 1:
@@ -603,7 +648,7 @@ class MainWindow:
         content_width = max(1120, view_width)
         text_width = max(640, min(1040, view_width - 60))
 
-        canvas.create_rectangle(0, 0, content_width, 245, fill=BG_PANEL, outline="#334155", width=2)
+        canvas.create_rectangle(0, 0, content_width, 265, fill=BG_PANEL, outline="#334155", width=2)
         canvas.create_text(
             20,
             18,
@@ -631,14 +676,14 @@ class MainWindow:
             font=("Fixedsys", 9, "bold"),
             width=text_width
         )
-        canvas.create_rectangle(20, 125, view_width - 25, 170, fill="#0f172a", outline="#475569", width=1)
+        canvas.create_rectangle(20, 125, view_width - 25, 182, fill="#0f172a", outline="#475569", width=1)
         canvas.create_text(34, 140, anchor=tk.W, text=step_title, fill=HIGHLIGHT_GOLD, font=("Fixedsys", 10, "bold"))
-        canvas.create_text(160, 140, anchor=tk.W, text=step_detail, fill=TEXT_MAIN, font=("Fixedsys", 9), width=max(460, view_width - 220))
+        canvas.create_text(34, 162, anchor=tk.W, text=step_detail, fill=TEXT_MAIN, font=("Fixedsys", 9), width=max(520, view_width - 80))
 
-        canvas.create_rectangle(20, 180, view_width - 25, 230, fill="#0f172a", outline="#475569", width=1)
-        canvas.create_text(34, 195, anchor=tk.W, text="Cách đọc node", fill=ACCENT_GREEN, font=("Fixedsys", 10, "bold"))
-        canvas.create_text(190, 195, anchor=tk.W, text="N7 MAX m7 = node 7, lượt X, vừa đánh ô 7", fill=TEXT_MUTED, font=("Fixedsys", 8), width=max(320, view_width - 230))
-        canvas.create_text(190, 215, anchor=tk.W, text="value=? là chưa biết; viền xanh là đường tối ưu sau khi xong", fill=TEXT_MUTED, font=("Fixedsys", 8), width=max(320, view_width - 230))
+        canvas.create_rectangle(20, 195, view_width - 25, 250, fill="#0f172a", outline="#475569", width=1)
+        canvas.create_text(34, 210, anchor=tk.W, text="Cách đọc node", fill=ACCENT_GREEN, font=("Fixedsys", 10, "bold"))
+        canvas.create_text(190, 210, anchor=tk.W, text="N7 MAX m7 = node 7, lượt X, vừa đánh ô 7", fill=TEXT_MUTED, font=("Fixedsys", 8), width=max(320, view_width - 230))
+        canvas.create_text(190, 232, anchor=tk.W, text="value=? là chưa biết; viền xanh là đường tối ưu sau khi xong", fill=TEXT_MUTED, font=("Fixedsys", 8), width=max(320, view_width - 230))
 
         for node in nodes:
             parent_id = node["parent_id"]
@@ -1266,9 +1311,12 @@ class MainWindow:
         is_csp = self.is_csp_algorithm(selected_algo_name)
         is_belief = self.is_belief_algorithm(selected_algo_name)
         is_adversarial = self.is_adversarial_algorithm(selected_algo_name)
+        is_local = self.is_local_search_algorithm(selected_algo_name)
         self.lbl_initial_title.config(text="CUSTOM INITIAL BOARD (OPTIONAL)" if is_belief else "CUSTOM INITIAL BOARD")
         self.set_and_or_tree_visible("AND-OR" in selected_algo_name or is_csp or is_belief or is_adversarial)
         self.set_frontier_strip_visible(not ("AND-OR" in selected_algo_name or is_csp or is_belief or is_adversarial))
+        self.set_local_decision_visible(is_local and not ("AND-OR" in selected_algo_name or is_csp or is_belief or is_adversarial))
+        self.reset_local_decision_panel()
         
         self.solver = self.create_solver_for_current_selection()
 
@@ -1699,6 +1747,68 @@ class MainWindow:
                 selected_snapshot["active_child_id"] = None
                 self.solution_path.append({"text": text, "minimax_snapshot": selected_snapshot})
 
+    def format_local_candidate_scores(self, candidates):
+        if not candidates:
+            return "Candidates: none"
+        parts = []
+        for item in candidates:
+            move = item.get("move", "?")
+            h_val = item.get("h", "?")
+            marker = item.get("marker", "")
+            parts.append(f"{move}:h={h_val}{marker}")
+        return "Candidates: " + " | ".join(parts)
+
+    def update_local_decision_panel(self, data):
+        decision = data.get("local_decision")
+        if not decision:
+            current = data.get("current")
+            h_val = getattr(current, "h", "N/A")
+            self.reset_local_decision_panel(
+                detail=f"Current h(n) = {h_val}. Bấm Next Step để sinh neighbor và xem lý do chọn."
+            )
+            return
+
+        algo = decision.get("algo", "Local Search")
+        current_h = decision.get("current_h", "N/A")
+        selected_move = decision.get("selected_move")
+        selected_h = decision.get("selected_h")
+        reason = decision.get("reason", "")
+        candidates = decision.get("candidates", [])
+        candidate_text = self.format_local_candidate_scores(candidates)
+
+        title = f"{algo.upper()} DECISION"
+        if selected_move:
+            selection_text = f"Selected: {selected_move} -> h={selected_h}"
+            color = ACCENT_GREEN if decision.get("accepted", False) else ACCENT_RED
+        else:
+            selection_text = "Selected: none"
+            color = ACCENT_RED if decision.get("stuck", False) else TEXT_MUTED
+
+        extra_lines = []
+        if "better_count" in decision:
+            extra_lines.append(f"Better neighbors: {decision['better_count']}")
+        if "restart_count" in decision:
+            extra_lines.append(f"Restarts: {decision['restart_count']}/{decision.get('max_restart', '?')}")
+        if "beam_k" in decision:
+            extra_lines.append(f"Beam k={decision['beam_k']} | candidates in pool={decision.get('candidate_count', 0)}")
+        if "temperature" in decision:
+            random_value = decision.get("random_value")
+            random_text = "N/A" if random_value is None else f"{random_value:.3f}"
+            extra_lines.append(
+                f"T={decision['temperature']:.2f} | delta={decision.get('delta')} | P={decision.get('probability', 0):.3f} | r={random_text}"
+            )
+
+        detail_lines = [
+            f"Current h(n) = {current_h}",
+            selection_text,
+            f"Reason: {reason}",
+            candidate_text
+        ]
+        detail_lines.extend(extra_lines)
+
+        self.local_decision_title.config(text=title, fg=color)
+        self.local_decision_detail.config(text="\n".join(detail_lines))
+
     def update_ui_from_state(self, data):
         if data is None:
             return
@@ -1720,6 +1830,8 @@ class MainWindow:
             return
 
         if data["status"] == "failure":
+            if self.is_local_search_algorithm(current_algo):
+                self.update_local_decision_panel(data)
             self.lbl_stats.config(text="ALGORITHM STOPPED: NO PATH FOUND / STUCK IN LOCAL MAXIMUM!!!", fg=ACCENT_RED)
             self.btn_next.config(state=tk.DISABLED)
             self.btn_auto.config(state=tk.DISABLED)
@@ -1750,6 +1862,9 @@ class MainWindow:
             self.colorize_node(self.node_right, self.lbl_right, 'RIGHT', info, current_algo)
         else:
             self.clear_neighbors()
+
+        if self.is_local_search_algorithm(current_algo):
+            self.update_local_decision_panel(data)
 
         if data["status"] == "success":
             self.btn_next.config(state=tk.DISABLED)
@@ -1806,6 +1921,7 @@ class MainWindow:
             T_val = data.get('sa_T', 0)
             delta = data.get('sa_delta', 0)
             p_val = data.get('sa_p', 0)
+            r_val = data.get('sa_random', None)
             acc = data.get('sa_accepted', False)
             
             status_str = "ACCEPTED" if acc else "REJECTED"
@@ -1815,7 +1931,8 @@ class MainWindow:
                 stats_text = f"Step: {self.step_count} | T: {T_val:.2f} | Δ = {delta} (<0) -> {status_str} | h(n) = {h_val}"
             else:
                 # Nếu tệ hơn (Delta dương), hiện cả Xác suất P
-                stats_text = f"Step: {self.step_count} | T: {T_val:.2f} | Δ = {delta} | P = {p_val:.2f} -> {status_str} | h(n) = {h_val}"
+                r_text = "N/A" if r_val is None else f"{r_val:.2f}"
+                stats_text = f"Step: {self.step_count} | T: {T_val:.2f} | Δ = {delta} | P = {p_val:.2f} | r = {r_text} -> {status_str} | h(n) = {h_val}"
             self.lbl_stats.config(text=stats_text, fg=TEXT_MUTED)
 
         elif "Beam Search" in current_algo:

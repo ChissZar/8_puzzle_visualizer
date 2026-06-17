@@ -82,20 +82,36 @@ class SimpleHillClimbingSolver:
             }
 
         children_info = {}
+        candidates = []
+        selected_move = None
+        selected_h = None
         
         # SINH LẦN LƯỢT CÁC LÂN CẬN
         for move, m_board in self.get_successors(current_node):
             h_m = self.calculate_manhattan(m_board)
             m_node = HCNode(m_board, parent=current_node, move=move, h=h_m)
+            marker = ""
             
             # KIỂM TRA ĐIỀU KIỆN "TỐT HƠN" (h nhỏ hơn)
             if h_m < current_node.h:
                 self.frontier.append(m_node)
                 children_info[move] = {"node": m_node, "type": "new"} # Màu xanh lá
+                selected_move = move
+                selected_h = h_m
+                marker = " <- first better"
+                candidates.append({"move": move, "h": h_m, "marker": marker})
                 break 
             else:
                 # Nếu không tốt hơn, đánh dấu đỏ (từ chối)
                 children_info[move] = {"node": m_node, "type": "reached"}
+                candidates.append({"move": move, "h": h_m, "marker": " rejected"})
+
+        accepted = selected_move is not None
+        reason = (
+            "Simple Hill Climbing duyệt theo thứ tự LEFT, RIGHT, UP, DOWN và nhận neighbor đầu tiên có h nhỏ hơn current."
+            if accepted
+            else "Không có neighbor đã xét nào tốt hơn current, thuật toán bị kẹt tại local maximum."
+        )
 
         return {
             "status": "running",
@@ -103,5 +119,15 @@ class SimpleHillClimbingSolver:
             "children_info": children_info,
             "frontier_preview": [n.board for n in self.frontier],
             "reached_count": 0,
-            "frontier_count": len(self.frontier)
+            "frontier_count": len(self.frontier),
+            "local_decision": {
+                "algo": "Simple Hill Climbing",
+                "current_h": current_node.h,
+                "selected_move": selected_move,
+                "selected_h": selected_h,
+                "accepted": accepted,
+                "stuck": not accepted,
+                "candidates": candidates,
+                "reason": reason
+            }
         }

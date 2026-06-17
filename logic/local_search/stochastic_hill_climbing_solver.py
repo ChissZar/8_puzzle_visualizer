@@ -82,12 +82,16 @@ class StochasticHillClimbingSolver:
         children_info = {}
         all_successors = []
         better_neighbors = []
+        candidates = []
+        chosen_move = None
+        chosen_node = None
         
         # Sinh tất cả các trạng thái lân cận
         for move, m_board in self.get_successors(current_node):
             h_m = self.calculate_manhattan(m_board)
             m_node = StochasticHCNode(m_board, parent=current_node, move=move, h=h_m)
             all_successors.append((move, m_node))
+            candidates.append({"move": move, "h": h_m, "marker": ""})
             
             # Lọc ra tập Better_Neighbors
             if h_m < current_node.h:
@@ -97,6 +101,10 @@ class StochasticHillClimbingSolver:
         if not better_neighbors:
             for move, m_node in all_successors:
                 children_info[move] = {"node": m_node, "type": "reached"} # Đỏ (Từ chối hết)
+            for item in candidates:
+                item["marker"] = " not better"
+            accepted = False
+            reason = "Không có better neighbor nên Stochastic Hill Climbing bị kẹt."
         else:
             # Ngược lại: Chọn ngẫu nhiên một trạng thái từ tập Better_Neighbors
             chosen_move, chosen_node = random.choice(better_neighbors)
@@ -108,6 +116,16 @@ class StochasticHillClimbingSolver:
                     children_info[move] = {"node": m_node, "type": "new"}
                 else:
                     children_info[move] = {"node": m_node, "type": "reached"}
+            better_moves = {move for move, _ in better_neighbors}
+            for item in candidates:
+                if item["move"] == chosen_move:
+                    item["marker"] = " <- random pick"
+                elif item["move"] in better_moves:
+                    item["marker"] = " better"
+                else:
+                    item["marker"] = " rejected"
+            accepted = True
+            reason = "Lọc các neighbor có h nhỏ hơn current, rồi chọn ngẫu nhiên một neighbor trong tập đó."
 
         return {
             "status": "running",
@@ -115,5 +133,16 @@ class StochasticHillClimbingSolver:
             "children_info": children_info,
             "frontier_preview": [n.board for n in self.frontier],
             "reached_count": 0,
-            "frontier_count": len(better_neighbors) # Trả về số lượng Better_Neighbors 
+            "frontier_count": len(better_neighbors), # Trả về số lượng Better_Neighbors 
+            "local_decision": {
+                "algo": "Stochastic Hill Climbing",
+                "current_h": current_node.h,
+                "selected_move": chosen_move,
+                "selected_h": chosen_node.h if chosen_node else None,
+                "accepted": accepted,
+                "stuck": not accepted,
+                "better_count": len(better_neighbors),
+                "candidates": candidates,
+                "reason": reason
+            }
         }

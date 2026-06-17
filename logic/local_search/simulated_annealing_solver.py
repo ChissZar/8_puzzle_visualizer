@@ -91,11 +91,13 @@ class SimulatedAnnealingSolver:
         
         is_accepted = False
         p = 0.0
+        rand_val = None
 
         if delta < 0:
             # Δ < 0: Trạng thái TỐT HƠN -> Nhận
             is_accepted = True
             children_info[chosen_move] = {"node": next_node, "type": "new"} # Xanh lá
+            reason = "Delta < 0 nên neighbor tốt hơn current; nhận luôn."
         else:
             # Δ >= 0: Trạng thái TỆ HƠN -> Thử vận may bằng xác suất
             p = math.exp(-delta / self.T)
@@ -104,9 +106,11 @@ class SimulatedAnnealingSolver:
             if rand_val < p:
                 is_accepted = True
                 children_info[chosen_move] = {"node": next_node, "type": "success"} 
+                reason = "Delta >= 0 nhưng r < P nên vẫn nhận để có cơ hội thoát local maximum."
             else:
                 is_accepted = False
                 children_info[chosen_move] = {"node": next_node, "type": "reached"} # Đỏ (Từ chối)
+                reason = "Delta >= 0 và r >= P nên từ chối neighbor này."
 
         # Đóng gói dữ liệu TRƯỚC KHI cập nhật biến T
         state_data = {
@@ -118,7 +122,25 @@ class SimulatedAnnealingSolver:
             "sa_T": self.T,
             "sa_delta": delta,
             "sa_p": p,
-            "sa_accepted": is_accepted
+            "sa_random": rand_val,
+            "sa_accepted": is_accepted,
+            "local_decision": {
+                "algo": "Simulated Annealing",
+                "current_h": self.current_node.h,
+                "selected_move": chosen_move,
+                "selected_h": next_node.h,
+                "accepted": is_accepted,
+                "temperature": self.T,
+                "delta": delta,
+                "probability": p,
+                "random_value": rand_val,
+                "candidates": [{
+                    "move": chosen_move,
+                    "h": next_node.h,
+                    "marker": " accepted" if is_accepted else " rejected"
+                }],
+                "reason": reason
+            }
         }
 
         # Nếu chấp nhận, di chuyển sang trạng thái mới
